@@ -1,0 +1,241 @@
+---
+name: Collegiate Civic Harmony
+colors:
+  surface: '#ecfef1'
+  surface-dim: '#cdded2'
+  surface-bright: '#ecfef1'
+  surface-container-lowest: '#ffffff'
+  surface-container-low: '#e6f8eb'
+  surface-container: '#e0f2e6'
+  surface-container-high: '#dbede0'
+  surface-container-highest: '#d5e7da'
+  on-surface: '#101f17'
+  on-surface-variant: '#414844'
+  inverse-surface: '#24342b'
+  inverse-on-surface: '#e3f5e8'
+  outline: '#717973'
+  outline-variant: '#c1c8c2'
+  surface-tint: '#3f6653'
+  primary: '#012d1d'
+  on-primary: '#ffffff'
+  primary-container: '#1b4332'
+  on-primary-container: '#86af99'
+  inverse-primary: '#a5d0b9'
+  secondary: '#a23e18'
+  on-secondary: '#ffffff'
+  secondary-container: '#fe8357'
+  on-secondary-container: '#6f2000'
+  tertiary: '#3e1e00'
+  on-tertiary: '#ffffff'
+  tertiary-container: '#5e3000'
+  on-tertiary-container: '#f48c24'
+  error: '#ba1a1a'
+  on-error: '#ffffff'
+  error-container: '#ffdad6'
+  on-error-container: '#93000a'
+  primary-fixed: '#c1ecd4'
+  primary-fixed-dim: '#a5d0b9'
+  on-primary-fixed: '#002114'
+  on-primary-fixed-variant: '#274e3d'
+  secondary-fixed: '#ffdbcf'
+  secondary-fixed-dim: '#ffb59c'
+  on-secondary-fixed: '#390c00'
+  on-secondary-fixed-variant: '#822801'
+  tertiary-fixed: '#ffdcc3'
+  tertiary-fixed-dim: '#ffb77d'
+  on-tertiary-fixed: '#2f1500'
+  on-tertiary-fixed-variant: '#6e3900'
+  background: '#ecfef1'
+  on-background: '#101f17'
+  surface-variant: '#d5e7da'
+typography:
+  display:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 48px
+    fontWeight: '700'
+    lineHeight: 56px
+    letterSpacing: -0.02em
+  display-mobile:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 36px
+    fontWeight: '700'
+    lineHeight: 44px
+    letterSpacing: -0.02em
+  headline-lg:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 32px
+    fontWeight: '700'
+    lineHeight: 40px
+    letterSpacing: -0.015em
+  headline-lg-mobile:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 26px
+    fontWeight: '600'
+    lineHeight: 34px
+    letterSpacing: -0.01em
+  headline-md:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 24px
+    fontWeight: '600'
+    lineHeight: 32px
+    letterSpacing: -0.01em
+  headline-sm:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 20px
+    fontWeight: '600'
+    lineHeight: 28px
+  title:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 18px
+    fontWeight: '600'
+    lineHeight: 26px
+  body-lg:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 16px
+    fontWeight: '400'
+    lineHeight: 24px
+  body-md:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 14px
+    fontWeight: '400'
+    lineHeight: 20px
+  label-md:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 13px
+    fontWeight: '600'
+    lineHeight: 18px
+    letterSpacing: 0.01em
+  label-sm:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 11px
+    fontWeight: '600'
+    lineHeight: 16px
+    letterSpacing: 0.04em
+rounded:
+  sm: 0.25rem
+  DEFAULT: 0.5rem
+  md: 0.75rem
+  lg: 1rem
+  xl: 1.5rem
+  full: 9999px
+spacing:
+  gutter: 1.5rem
+  gutter-mobile: 1rem
+  margin: 2rem
+  margin-mobile: 1rem
+  space-xs: 0.25rem
+  space-sm: 0.5rem
+  space-md: 1rem
+  space-lg: 1.5rem
+  space-xl: 2.5rem
+---
+
+## Brand & Style
+
+This design system is tailored for a campus community navigating stressful moments: losing an essential item or striving to return one. It combines classical academic prestige with the warmth, clarity, and approachability of modern community services.
+
+### Emotional Disposition
+- **Reassurance & Trust:** Solid, institutional hues remove frantic panic from item loss.
+- **Clarity & Efficiency:** Zero extraneous ornamentation; users must scan, log, and claim items rapidly.
+- **Warm Civic Hospitality:** Natural, tactile tones replace clinical corporate palettes, encouraging collective campus responsibility.
+
+### Design Movement & Aesthetic
+- **Warm Institutional Minimalism:** Employs expansive off-white and warm cream canvas foundations layered with crisp white cards, grounded in deep forest greens and earthen terracotta accents.
+- **Tactile Softness:** Defined by physical warmth—avoiding aggressive glassmorphism, cold tech blues, or fluorescent neon accents. Hierarchy relies on structural border contrasts, gentle ambient shadows, and purposeful warm color tagging.
+
+## Colors
+
+The palette draws inspiration from historic campus courtyards, library brickwork, and park lawns, maintaining strict WCAG AAA contrast ratios for body typography.
+
+### Core Roles
+- **Primary (`#1B4332`):** Deep collegiate forest green. Communicates authority, trust, and official campus resolution. Used for primary CTA buttons, dominant titles, active navigation states, and primary focal highlights.
+- **Secondary (`#C85A32`):** Terracotta / warm rust clay. Used for urgent actions (e.g., "Report Lost Item"), high-priority alerts, and focused interaction badges.
+- **Tertiary (`#D97706`):** Warm amber gold. Expresses "In Review," "Pending Match," or "Awaiting Pickup" states.
+- **Neutral Dark (`#1B2A22`):** Deep pine graphite. Replaces pure black to preserve warmth while guaranteeing crisp readability for body copy, table text, and icons.
+
+### Surface Tones & Tonal Accents
+- **Canvas / Root Background:** `#FAF8F5` (Warm Cream) with `#F4F1EA` for recessed sections and sidebars.
+- **Surfaces & Cards:** `#FFFFFF` (Primary Surface) and `#F8F6F0` (Secondary/Linen Container).
+- **Hairline Borders:** `#E7E3D8` and `#E5E0D5`.
+- **Status Soft Tints:**
+  - *Success / Resolved:* Surface `#D8F3DC`, Foreground `#2D6A4F`
+  - *Alert / Lost Item:* Surface `#FDE8E1`, Foreground `#C85A32`
+  - *Pending / Review:* Surface `#FEF3C7`, Foreground `#92400E`
+
+## Typography
+
+The type architecture relies on **Plus Jakarta Sans**, chosen for its friendly geometric curves, high x-height, and humane open apertures.
+
+### Hierarchy & Application
+- **Display & Large Headlines:** Used for dashboard welcome headers, public search portals, and hero callouts. Dense letter-spacing creates an authoritative, editorial balance.
+- **Headlines & Titles:** Distinguish item categories, claim ticket statuses, and modal dialogues. 
+- **Body:** Kept at a generous line height for effortless scanning across high-volume listings and descriptions of found objects.
+- **Labels:** Rendered with elevated weight (`600`) and slight tracking to anchor metadata badges, timestamps, pickup location markers, and table schema headers.
+
+## Layout & Spacing
+
+A fluid grid system organizes discovery grids, item claim queues, and data entry forms.
+
+### Grid & Canvas Structure
+- **Desktop (1024px+):** 12-column fluid grid, max container width of `1280px`, with `1.5rem` (`24px`) gutters and `2rem` (`32px`) margins. Sidebar controls for filter facets lock at `280px` or `320px`.
+- **Tablet (768px – 1023px):** 8-column layout with `1.5rem` gutters and `1.5rem` margins. Filter rails collapse into sliding drawer sheets.
+- **Mobile (<768px):** 4-column layout with `1rem` (`16px`) gutters and `1rem` margins. Item feeds switch into single-column vertical card flows.
+
+### Spacing Rhythm
+Component spacing follows a modular 4px/8px scale:
+- `space-xs` (`4px`): Micro badge padding and inline icon gap.
+- `space-sm` (`8px`): Form label to input offset, tag spacing.
+- `space-md` (`16px`): Standard card padding on mobile, form field vertical stacks.
+- `space-lg` (`24px`): Default card padding on desktop, section header margins.
+- `space-xl` (`40px`): Section vertical breaks and boundary gaps.
+
+## Elevation & Depth
+
+To avoid synthetic digital finishes, depth is articulated through **tonal separation** paired with **warm ambient drop shadows**.
+
+### Elevation Scale
+- **Flat Ground (Level 0):** Canvas `#FAF8F5`. No shadow. Recessed inputs and inactive table backgrounds use `#F4F1EA`.
+- **Surface Level (Level 1):** Primary Cards and Item Panels (`#FFFFFF`). Outlined by `border border-[#E5E0D5]` and softened with `0 1px 3px rgba(27, 42, 34, 0.04), 0 4px 12px rgba(27, 42, 34, 0.03)`.
+- **Interactive Hover (Level 2):** Hovered Item Cards, Floating Quick Actions, and Tooltips. Lifted with `0 4px 6px rgba(27, 42, 34, 0.04), 0 10px 20px rgba(27, 42, 34, 0.06)`, maintaining the warm border.
+- **Floating Overlays & Modals (Level 3):** Verification Modals, Claim Proof Sheets, and Dropdowns. Shadow: `0 12px 32px rgba(27, 42, 34, 0.08), 0 2px 6px rgba(27, 42, 34, 0.04)`. Accompanied by a 30% tinted pine graphite scrim (`#1B2A224D`).
+
+## Shapes
+
+The interface embraces organic curvature to soften institutional administrative tools.
+
+- **Base Corner Radius (`0.5rem` / `8px`):** Input fields, inline filter chips, table rows, and secondary buttons.
+- **Card Corner Radius (`1rem` / `16px`):** Item detail cards, summary statistic panels, and upload drop zones.
+- **Large Surface Radius (`1.5rem` / `24px`):** Main dialogue modals, flyout drawers, and search banner wrappers.
+- **Pill Radius (`9999px`):** Status indicator tags, round avatar placeholders, and floating status pips.
+
+## Components
+
+### Buttons
+- **Primary:** Background `#1B4332`, Text `#FFFFFF`, Corner radius `rounded-lg` (`8px`), Padding `10px 20px`. Hover state transitions to `#2D6A4F`.
+- **Secondary / Action (Report Lost):** Background `#C85A32`, Text `#FFFFFF`. Hover state transitions to `#D97443`.
+- **Tertiary / Outline:** Background `transparent`, Border `1px solid #E5E0D5`, Text `#1B2A22`. Hover background `#F4F1EA`.
+
+### Cards & Item Feed Tiles
+- Structural boundary with `1px solid #E7E3D8` over `#FFFFFF`.
+- Features an image wrapper ratio of `4:3` with subtle inner radius (`rounded-lg`).
+- Metadata stack displays an inline building badge (e.g., "Student Union 2nd Floor") along with human-readable timestamps ("Found 2h ago").
+
+### Chips & Badges
+- **Claim Status Tags:** Pill-shaped with `4px 10px` padding, typography `label-sm`.
+  - *Found / Available:* Background `#D8F3DC`, Text `#1B4332`.
+  - *Reported Lost:* Background `#FDE8E1`, Text `#C85A32`.
+  - *Under Verification:* Background `#FEF3C7`, Text `#92400E`.
+- **Filter Chips:** Inactive background `#FFFFFF`, border `#E5E0D5`, text `#1B2A22`. Active background `#1B4332`, border `#1B4332`, text `#FFFFFF`.
+
+### Input Fields & Search Bars
+- Background `#FFFFFF`, border `1px solid #E5E0D5`, corner radius `8px`.
+- Focus state activates an outline of `2px solid #1B4332` with a `0 0 0 3px rgba(27, 67, 50, 0.1)` glow ring.
+- Placeholder text in `#8C827A` to ensure legibility on off-white surfaces.
+
+### Checkboxes & Radios
+- Size `18px`, border `1.5px solid #C4BEB4`, radius `4px` (checkbox) or `50%` (radio).
+- Active state fills with `#1B4332`, rendering a crisp white checkmark or inner dot.
+
+### Specialized Lost & Found Components
+- **Item Verification Stepper:** Progress timeline tracking `Reported → Match Found → ID Verification → Handed Over`.
+- **Secure Match Claim Banner:** Surface `#F8F6F0` framed by a `#C85A32` left accent border (`4px`), prompting students to describe identifying marks or upload proof of ownership.

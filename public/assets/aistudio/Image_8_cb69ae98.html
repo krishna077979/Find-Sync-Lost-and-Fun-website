@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"outline":"#717973","on-secondary-fixed-variant":"#822801","primary":"#012d1d","inverse-surface":"#24342b","surface-tint":"#3f6653","outline-variant":"#c1c8c2","primary-container":"#1b4332","surface-container":"#e0f2e6","background":"#ecfef1","secondary-fixed":"#ffdbcf","tertiary-container":"#5e3000","surface-variant":"#d5e7da","tertiary-fixed-dim":"#ffb77d","primary-fixed":"#c1ecd4","on-error-container":"#93000a","inverse-primary":"#a5d0b9","surface-bright":"#ecfef1","secondary-fixed-dim":"#ffb59c","secondary":"#a23e18","on-tertiary":"#ffffff","tertiary-fixed":"#ffdcc3","tertiary":"#3e1e00","surface-container-high":"#dbede0","surface-container-highest":"#d5e7da","error-container":"#ffdad6","on-surface":"#101f17","on-tertiary-fixed":"#2f1500","on-error":"#ffffff","on-secondary":"#ffffff","on-secondary-fixed":"#390c00","on-secondary-container":"#6f2000","on-tertiary-fixed-variant":"#6e3900","surface":"#ecfef1","primary-fixed-dim":"#a5d0b9","on-primary-fixed-variant":"#274e3d","error":"#ba1a1a","on-primary-fixed":"#002114","surface-container-lowest":"#ffffff","on-primary-container":"#86af99","secondary-container":"#fe8357","inverse-on-surface":"#e3f5e8","on-surface-variant":"#414844","surface-container-low":"#e6f8eb","on-tertiary-container":"#f48c24","on-primary":"#ffffff","surface-dim":"#cdded2","on-background":"#101f17"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-sm":"0.5rem","space-lg":"1.5rem","margin":"2rem","space-xl":"2.5rem","gutter":"1.5rem","margin-mobile":"1rem","space-md":"1rem","gutter-mobile":"1rem","space-xs":"0.25rem"},"fontFamily":{"headline-md":["Plus Jakarta Sans"],"label-md":["Plus Jakarta Sans"],"display-mobile":["Plus Jakarta Sans"],"display":["Plus Jakarta Sans"],"label-sm":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-lg":["Plus Jakarta Sans"],"headline-sm":["Plus Jakarta Sans"],"title":["Plus Jakarta Sans"]},"fontSize":{"headline-md":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"label-md":["13px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"600"}],"display-mobile":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],"display":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"700"}],"label-sm":["11px",{"lineHeight":"16px","letterSpacing":"0.04em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.015em","fontWeight":"700"}],"headline-lg-mobile":["26px",{"lineHeight":"34px","letterSpacing":"-0.01em","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-sm":["20px",{"lineHeight":"28px","fontWeight":"600"}],"title":["18px",{"lineHeight":"26px","fontWeight":"600"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased min-h-screen flex flex-col justify-between"><header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(27,42,34,0.05)]"><div class="h-16 w-full px-margin flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-sm shrink-0"><img alt="FindSync Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VwGbx8ssHDW91GqGR5gN87gcswDMO74hwi4XSHvdIKEvS3XJkNNFBBXO0iaffraiyV07KpSbnGAQGsiAIv-xNejIDcIbbYw8KtbFKv_X4MtAcWON76Bfu3gPh3gA2qMUOp5zJM7KyKIAjP8jqMObiLqcZ29hdYa-wTLAxGvUHvbY7FLPJUZdMGhImJ9FDJ8KHq26iaQq_ZoK9oxfmE7AXtinS5G612JyqHu_tIDBUzu8FRpNE0vmQGzGLR"/><div class="flex flex-col"><span class="font-title text-title text-primary tracking-tight font-bold leading-none">FindSync</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">Campus Lost &amp; Found Hub</span></div></div><nav class="hidden xl:flex items-center gap-space-xs" data-active-classes="bg-primary-container text-on-primary font-label-md"><a class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="explore-and-search" href="#">Explore &amp; Search</a><a class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="potential-matches" href="#">Potential Matches</a><a class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="report-lost" href="#">Report Lost</a><a class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="report-found" href="#">Report Found</a><a class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="my-items" href="#">My Items</a><a class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors inline-flex items-center gap-space-xs" data-path="admin-portal" href="#"><span>Admin Portal</span><span class="bg-surface-container-high text-on-surface text-label-sm font-label-sm px-1.5 py-0.5 rounded-full">Staff</span></a></nav><div class="flex items-center gap-space-md shrink-0"><button class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors font-label-md text-label-md" type="button"><span class="material-symbols-outlined text-lg text-secondary">support_agent</span><span>Campus Desk</span></button><div class="relative flex items-center"><button aria-label="Notifications" class="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined">notifications</span><span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container-lowest"></span></button></div><div class="flex items-center gap-space-sm pl-space-xs py-1 pr-2 rounded-full hover:bg-surface-container-high transition-colors cursor-pointer"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbf3G8HSF-ivKo4tb4pr1yc9N2z3g5MjMlZ1zlxGTrUICAsSqyPLbMYvMCHgXvSZtn_69uXi9Qk73gzkaflf7kDMJzpUh1wiqbRKMkrLN2jG5j6LTY7Z2gpJjjoJaWvTSRPiRHoNd3iMEMzDrELyvtp3e3BEKzQm_O8MBOpA5H_eJXeeLyBnr5lLY0kImxZQVN80sYF1V-gTJRzDXQyvqmZ5Bh_ByMZ8nG5SMX1RGsWIfBYgQIL74N-Q"/><div class="hidden lg:flex flex-col text-left"><span class="font-label-md text-label-md text-on-surface leading-tight font-semibold">Maya Lin</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-none">Student · Caldwell Univ</span></div><span class="material-symbols-outlined text-on-surface-variant text-base">expand_more</span></div></div></div></header><main class="w-full pt-16 bg-surface min-h-[calc(100vh-144px)]"><div class="flex flex-col w-full">
+<!-- Top Decorative Ambient Glow -->
+<div class="relative w-full overflow-hidden">
+<div class="absolute -top-32 -left-20 w-96 h-96 rounded-full bg-primary-fixed/30 blur-3xl pointer-events-none"></div>
+<div class="absolute -top-20 right-10 w-80 h-80 rounded-full bg-secondary-fixed/40 blur-3xl pointer-events-none"></div>
+<!-- Header & Search Zone -->
+<section class="relative w-full px-margin pt-space-lg pb-space-md">
+<div class="max-w-[1280px] mx-auto flex flex-col gap-space-md">
+<!-- Header Typography Hierarchy -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md">
+<div class="flex flex-col gap-space-xs max-w-2xl">
+<div class="inline-flex items-center gap-space-xs text-primary font-label-sm uppercase tracking-wider">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span>Live Campus Property Directory</span>
+<span class="text-outline-variant">•</span>
+<span class="text-on-surface-variant font-label-sm">Updated 6 mins ago</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">
+              Search Campus Lost &amp; Found Registry
+            </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+              Browse publicly logged items across Caldwell University campus buildings and check active recovery listings.
+            </p>
+</div>
+<!-- Quick Action Metric Bar -->
+<div class="flex items-center gap-space-sm bg-surface-container-low p-2 rounded-xl shrink-0">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">task_alt</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-on-surface-variant leading-none">Auto-Match Rate</span>
+<span class="font-title text-title text-primary font-bold leading-tight">78.4%</span>
+</div>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-secondary text-xl">security</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-on-surface-variant leading-none">Safe Desks</span>
+<span class="font-title text-title text-on-surface font-bold leading-tight">4 Open</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Prominent Elevated Search Input -->
+<div class="relative w-full mt-2">
+<div class="relative flex items-center bg-surface-container-lowest rounded-xl shadow-md transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary-container">
+<span class="material-symbols-outlined absolute left-4 text-on-surface-variant text-2xl pointer-events-none">search</span>
+<input class="w-full pl-12 pr-28 py-4 bg-transparent font-body-lg text-body-lg text-on-surface placeholder:text-outline focus:outline-none rounded-xl" id="directorySearchInput" placeholder="Search by item title, brand, campus building, or description..." type="text" value="Caldwell Student Union"/>
+<div class="absolute right-3 flex items-center gap-1">
+<button aria-label="Clear Search Input" class="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" onclick="document.getElementById('directorySearchInput').value='';" type="button">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+<button class="px-4 py-2 rounded-lg bg-primary-container text-on-primary font-label-md hover:bg-primary transition-colors flex items-center gap-1.5 shadow-sm" type="button">
+<span>Filter</span>
+<span class="material-symbols-outlined text-sm">tune</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Filter Category Pills -->
+<div class="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar text-nowrap">
+<button class="px-4 py-2 rounded-full font-label-md bg-primary text-on-primary shadow-sm flex items-center gap-1.5 shrink-0" type="button">
+<span>All Items</span>
+<span class="px-1.5 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm">342</span>
+</button>
+<button class="px-4 py-2 rounded-full font-label-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors shadow-sm flex items-center gap-1.5 shrink-0" type="button">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span>Lost Reports</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">184</span>
+</button>
+<button class="px-4 py-2 rounded-full font-label-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors shadow-sm flex items-center gap-1.5 shrink-0" type="button">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+<span>Found at Desks</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">158</span>
+</button>
+<button class="px-4 py-2 rounded-full font-label-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors shadow-sm flex items-center gap-1.5 shrink-0" type="button">
+<span class="material-symbols-outlined text-base text-on-tertiary-container">auto_awesome</span>
+<span>Potential Matches</span>
+<span class="px-1.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold">12</span>
+</button>
+<button class="px-4 py-2 rounded-full font-label-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors shadow-sm flex items-center gap-1.5 shrink-0" type="button">
+<span class="material-symbols-outlined text-base text-primary-container">handshake</span>
+<span>Recently Reunited</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">84</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+<!-- Main Body Grid: Sidebar (280px) + Results Feeds (Flex 1) -->
+<section class="w-full px-margin pb-space-xl">
+<div class="max-w-[1280px] mx-auto flex flex-col lg:flex-row gap-gutter items-start">
+<!-- Left Column / Filter Controls (280px Desktop) -->
+<aside class="w-full lg:w-[280px] shrink-0 flex flex-col gap-space-md">
+<!-- Safe Custody Widget -->
+<div class="w-full p-4 rounded-xl bg-surface-container-low shadow-sm flex flex-col gap-3">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">desk</span>
+<span class="font-title text-title text-primary font-bold">Custody Desk</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+              Open Now
+            </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant leading-tight">
+<strong>Caldwell Student Union Desk</strong><br/>
+            Level 1, East Atrium<br/>
+            Hours: 8:00 AM – 8:00 PM Today
+          </p>
+<div class="pt-2 flex items-center justify-between font-label-sm text-primary">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">call</span> ext. 4420</span>
+<a class="underline hover:text-primary-container" href="#">Campus Map →</a>
+</div>
+</div>
+<!-- Filter Card -->
+<div class="w-full bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col gap-space-lg">
+<!-- Header & Reset -->
+<div class="flex items-center justify-between pb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">filter_alt</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Filters</span>
+</div>
+<button class="font-label-md text-label-md text-secondary hover:underline font-semibold" type="button">
+              Reset all
+            </button>
+</div>
+<!-- Status Accordion -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface uppercase tracking-wider text-xs">Item Status</span>
+<div class="flex flex-col gap-2 font-body-md text-body-md text-on-surface">
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Found (In Custody)</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">158</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Lost (Reported)</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">184</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Under Claim Review</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">19</span>
+</label>
+</div>
+</div>
+<!-- Category Multi-Select -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface uppercase tracking-wider text-xs">Category</span>
+<div class="flex flex-col gap-2 font-body-md text-body-md text-on-surface">
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Electronics</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">64</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Bags &amp; Backpacks</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">42</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Keys &amp; Wallets</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">51</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Jackets &amp; Gear</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">33</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Books &amp; Stationery</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">29</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Personal Essentials</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">78</span>
+</label>
+</div>
+</div>
+<!-- Campus Zone Checkbox List -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface uppercase tracking-wider text-xs">Campus Zone</span>
+<div class="flex flex-col gap-2 font-body-md text-body-md text-on-surface">
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Student Union</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">88</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Main Campus Library</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">94</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Science Quad</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">45</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>North Campus Dorms</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">32</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="w-4 h-4 rounded text-primary-container accent-primary-container cursor-pointer" type="checkbox"/>
+<span>Recreational Center</span>
+<span class="ml-auto font-label-sm text-on-surface-variant">21</span>
+</label>
+</div>
+</div>
+<!-- Date Range Radio Pills -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface uppercase tracking-wider text-xs">Time Horizon</span>
+<div class="grid grid-cols-2 gap-1.5 font-label-md text-label-md">
+<button class="px-2 py-1.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container transition-colors text-center" type="button">Past 24h</button>
+<button class="px-2 py-1.5 rounded-lg bg-primary-container text-on-primary font-semibold text-center" type="button">Past 7 Days</button>
+<button class="px-2 py-1.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container transition-colors text-center" type="button">Past 30 Days</button>
+<button class="px-2 py-1.5 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container transition-colors text-center" type="button">Custom Range</button>
+</div>
+</div>
+<!-- Color Swatch Dots -->
+<div class="flex flex-col gap-2">
+<span class="font-label-md text-label-md text-on-surface uppercase tracking-wider text-xs">Dominant Color</span>
+<div class="flex items-center gap-2 flex-wrap">
+<button aria-label="Black color" class="w-6 h-6 rounded-full bg-neutral-900 ring-2 ring-primary-container shadow-sm" title="Black" type="button"></button>
+<button aria-label="Navy Blue color" class="w-6 h-6 rounded-full bg-blue-900 hover:scale-110 transition-transform shadow-sm" title="Navy Blue" type="button"></button>
+<button aria-label="Forest Green color" class="w-6 h-6 rounded-full bg-emerald-800 hover:scale-110 transition-transform shadow-sm" title="Forest Green" type="button"></button>
+<button aria-label="Terracotta color" class="w-6 h-6 rounded-full bg-[#a23e18] hover:scale-110 transition-transform shadow-sm" title="Terracotta / Brown" type="button"></button>
+<button aria-label="Silver color" class="w-6 h-6 rounded-full bg-slate-300 hover:scale-110 transition-transform shadow-sm" title="Silver / Grey" type="button"></button>
+<button aria-label="White color" class="w-6 h-6 rounded-full bg-white hover:scale-110 transition-transform shadow-sm" title="White / Cream" type="button"></button>
+<button aria-label="Yellow color" class="w-6 h-6 rounded-full bg-amber-400 hover:scale-110 transition-transform shadow-sm" title="Gold / Yellow" type="button"></button>
+</div>
+</div>
+</div>
+<!-- Campus Safety Reassurance Notice -->
+<div class="w-full p-4 rounded-xl bg-surface-container-high/60 flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-xl shrink-0 mt-0.5">policy</span>
+<p class="font-label-sm text-label-sm text-on-surface-variant leading-normal">
+            All registered high-value items (laptops, phones, wallets) require student ID &amp; serial number proof before physical hand-over.
+          </p>
+</div>
+</aside>
+<!-- Right Main Feed (3 Columns on Desktop) -->
+<main class="flex-1 w-full flex flex-col gap-space-lg">
+<!-- Results Bar: Controls & Active Sorting -->
+<div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm bg-surface-container-lowest p-3 px-4 rounded-xl shadow-sm">
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-primary">Active Items</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Showing 1–6 of 158 verified records</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<label class="font-label-md text-label-md text-on-surface-variant whitespace-nowrap" for="sortSelector">Sort by:</label>
+<div class="relative inline-flex items-center">
+<select class="appearance-none bg-surface-container-low font-label-md text-label-md text-on-surface pl-3 pr-8 py-1.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-container cursor-pointer" id="sortSelector">
+<option selected="">Most Recent First</option>
+<option>Highest Match Confidence</option>
+<option>Building (A-Z)</option>
+<option>Category</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 text-on-surface-variant text-base pointer-events-none">expand_more</span>
+</div>
+<div class="hidden md:flex items-center bg-surface-container-low rounded-lg p-0.5">
+<button aria-label="Grid View" class="p-1 rounded bg-surface-container-lowest text-primary shadow-xs" type="button">
+<span class="material-symbols-outlined text-lg">grid_view</span>
+</button>
+<button aria-label="List View" class="p-1 rounded text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-lg">view_list</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 3-Column Item Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-gutter w-full">
+<!-- CARD 1: Found Over-Ear Headphones -->
+<article class="flex flex-col bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 group">
+<div class="relative w-full aspect-[4/3] overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Matte black Sony wireless over-ear noise-cancelling headphones resting gently inside a clean plastic lost and found inventory bin, natural library indoor lighting, crisp high-end product photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzzzd0ovRElqQPLW0LCudQrhKmUg53Do9b6Yidb5dk8uwa88NIZAED1A1i4vgh4J7cstsu412RFPV5vATO5nI5-rgi2vqqb1iQCiVUpp3CYPjGpFxrcCQQALkgWFleXDcFhXHvWyuysebelADwQ9Gnmg08x33z0O0On6bOpdq-28Qh3kmi38GCtWAdQRjzolz-bXrSUsT2ZHypGKRRiSYZOOz1BaTxht-s5yDLgne60m_cvPdnkZultw"/>
+<span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm shadow-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed"></span>
+                Found · In Safe Custody
+              </span>
+<span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface font-label-sm text-label-sm font-semibold">
+                ID #FS-9042
+              </span>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-md">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm">
+<span class="uppercase tracking-wider">Electronics</span>
+<span class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                    Today, 4:30 PM
+                  </span>
+</div>
+<h2 class="font-title text-title text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+                  Black Over-Ear Wireless Headphones
+                </h2>
+<div class="flex items-center gap-1.5 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-base text-secondary">location_on</span>
+<span class="truncate">Student Union Hub (Desk Custody)</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2 mt-1">
+                  Matte black finish, cushioned headband with minor wear on left ear cup. Found on 2nd-floor study booth sofa.
+                </p>
+</div>
+<div class="pt-2 flex flex-col gap-2">
+<button class="w-full py-2.5 px-4 rounded-lg bg-primary-container text-on-primary font-label-md hover:bg-primary transition-colors flex items-center justify-center gap-2 shadow-sm" type="button">
+<span>View Item &amp; Check Matches</span>
+<span class="material-symbols-outlined text-base">arrow_forward</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 2: Lost Backpack (Terracotta Tag) -->
+<article class="flex flex-col bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 group">
+<div class="relative w-full aspect-[4/3] overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Olive green Fjallraven Kanken canvas backpack placed on a warm oak library tabletop, featuring subtle brass pins and a distinctive university lanyard keychain, soft directional golden hour window lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAse7bAQuWUR2LJDtIURNqpqWQJHOoStZFD7dSf3Kvp5QpKDZoJJbfY3B3ZRCbW893GOXsYsyBbcRJcPdjCLQVUltMOXKS-GVO-2biItMmazItfMcHbw-IE0oBz2aYbP9-meHVMK2eqIdQjf_DVw8TOF_JnZ3g7gU30XBpf5SSao1HtJYlbvhODZWMWHiPZrwc58lqCd-7teRR5McFo2wtK-ycXbCgytjCTgSZ_TWi5za4-Z83TxgRmXA"/>
+<span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-on-secondary font-label-sm text-label-sm shadow-md">
+<span class="material-symbols-outlined text-xs">report_problem</span>
+                Lost Report
+              </span>
+<span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-secondary font-label-sm text-label-sm font-semibold">
+                Reported by Student
+              </span>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-md">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm">
+<span class="uppercase tracking-wider">Bags &amp; Gear</span>
+<span class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-sm">history</span>
+                    Yesterday, 1:15 PM
+                  </span>
+</div>
+<h2 class="font-title text-title text-on-surface font-bold line-clamp-1 group-hover:text-secondary transition-colors">
+                  Olive Green Kånken Backpack
+                </h2>
+<div class="flex items-center gap-1.5 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-base text-secondary">location_on</span>
+<span class="truncate">Main Library 1st Floor Stacks</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2 mt-1">
+                  Has a silver carabiner with 2 keys and a yellow enamel solar system pin on the front pocket. Left near scanner.
+                </p>
+</div>
+<div class="pt-2 flex flex-col gap-2">
+<button class="w-full py-2.5 px-4 rounded-lg bg-secondary text-on-secondary font-label-md hover:bg-on-secondary-container transition-colors flex items-center justify-center gap-2 shadow-sm" type="button">
+<span class="material-symbols-outlined text-base">visibility</span>
+<span>I Found This Item / Report Match</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 3: Found Hydro Flask -->
+<article class="flex flex-col bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 group">
+<div class="relative w-full aspect-[4/3] overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Navy blue insulated Hydro Flask 32oz water bottle decorated with colorful vinyl National Parks stickers, resting on a clean cream desk surface in campus circulation office, bright natural lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcEe_-ExLjz0LQ8Xp-8haMsRqpx1PjzPBXCOyKlzb-zmqHlDKy-uo-mOcGBgdTHaaHAowFRHvXx8KuknYA23STDi3wV9NXO8w2ykJJRPOfqyNuHYXr396umBdQ_G1meuwWqJYwIwx6aYvqW7clpf4hCuTHE9nwSr-QJZHZ13UJhBfUIJcw7OHnTXcGQ_vkf-jp4Qu4tGVaslr8nDHTw2LDb9DbuPo8RPOMBhReAAINS4gQsi-S1BtZsQ"/>
+<span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm shadow-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed"></span>
+                Found · Safe Custody
+              </span>
+<span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface font-label-sm text-label-sm font-semibold">
+                Library Desk
+              </span>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-md">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm">
+<span class="uppercase tracking-wider">Personal Essentials</span>
+<span class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-sm">event</span>
+                    Oct 13
+                  </span>
+</div>
+<h2 class="font-title text-title text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+                  Navy Hydro Flask 32oz (Stickers)
+                </h2>
+<div class="flex items-center gap-1.5 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-base text-secondary">location_on</span>
+<span class="truncate">Science Quad Hallway Benches</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2 mt-1">
+                  Navy wide-mouth straw lid with Yosemite and Joshua Tree outdoor stickers. Cleaned and securely stored.
+                </p>
+</div>
+<div class="pt-2 flex flex-col gap-2">
+<button class="w-full py-2.5 px-4 rounded-lg bg-surface-container-low text-primary font-label-md hover:bg-surface-container-high transition-colors flex items-center justify-center gap-2" type="button">
+<span class="material-symbols-outlined text-base">verified</span>
+<span>Claim Ownership</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 4: Potential Match in Progress (Amber Tag) -->
+<article class="flex flex-col bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 group">
+<div class="relative w-full aspect-[4/3] overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Sleek silver Apple MacBook Air M2 laptop partially inside a dark heather grey felt protective sleeve, placed inside a secured university tech locker, studio angled shot, professional lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTIfQXXeIEgn8a1qlfpMXLPu0psDkSqaQjW6hdLGCqC-Ekgg4tvMA4Ykky0nzatXNnd9srwNwd0Pbluks1jAm7JJQuqXic5XarLNPKdiGsjfobdp2_WgbAkP28-Zj9XH5ddKhig2ShkJrrN2nvRvqywhqeOReUQnF6bNOjFAeb0e0zMM3gLYM21EljbwW7s1lD2yS5vvGTs_yITPTLdNXbCaOKYA7L_3vYgzSZ8g0MUfp9CoyRo-o-vw"/>
+<span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm shadow-md font-bold">
+<span class="material-symbols-outlined text-xs">auto_awesome</span>
+                Potential Match (86%)
+              </span>
+<span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface font-label-sm text-label-sm font-semibold">
+                High Value · Safe Vault
+              </span>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-md">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm">
+<span class="uppercase tracking-wider">Computers &amp; Tech</span>
+<span class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-sm">event</span>
+                    Oct 12
+                  </span>
+</div>
+<h2 class="font-title text-title text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+                  13-inch Silver Laptop in Sleeve
+                </h2>
+<div class="flex items-center gap-1.5 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-base text-secondary">location_on</span>
+<span class="truncate">Engineering Building Lab 304</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2 mt-1">
+                  Correlates with Lost Report #LR-331 filed by Maya Lin yesterday. Serial number verification pending.
+                </p>
+</div>
+<div class="pt-2 flex flex-col gap-2">
+<button class="w-full py-2.5 px-4 rounded-lg bg-tertiary-container text-on-tertiary font-label-md hover:bg-tertiary transition-colors flex items-center justify-center gap-2 shadow-sm" type="button">
+<span class="material-symbols-outlined text-base">compare_arrows</span>
+<span>View Comparison</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 5: Found Subaru Car Key -->
+<article class="flex flex-col bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 group">
+<div class="relative w-full aspect-[4/3] overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Brass and black electronic Subaru automobile key fob attached to a woven blue Caldwell University alumni lanyard and a small bronze gym tag, resting on a white wooden front desk counter." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD66HY2YtfYEZVj8sLZLUIUJiyDACnS2DoPDRqk9UTUIVIvrb5Lg5JTZ2fzzmgdp02cOXA8WaXWLCJwcWoueLfBOAjvaNZL9ykbFyazxFWtWM0HiCNbM0_2Y8TjA5Qi5GMGir_W6dNwsT0D6vE1f1B-fyHNwL1c7A5jpd2V7x3OTAksS-CaBPhMvq5tm49gdSN87QaCgP5CPlhbEdNC-atSxx2DrS9ZfSh2pOhHpNYHVm5RFTakJ16zbg"/>
+<span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm shadow-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed"></span>
+                Found · In Custody
+              </span>
+<span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface font-label-sm text-label-sm font-semibold">
+                Athletics Desk
+              </span>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-md">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm">
+<span class="uppercase tracking-wider">Keys &amp; Fobs</span>
+<span class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-sm">event</span>
+                    Oct 14
+                  </span>
+</div>
+<h2 class="font-title text-title text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+                  Subaru Car Key on Campus Lanyard
+                </h2>
+<div class="flex items-center gap-1.5 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-base text-secondary">location_on</span>
+<span class="truncate">Athletics Gymnasium Locker Lobby</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2 mt-1">
+                  Blue woven university lanyard, black 4-button keyless fob, along with a brass locker padlock key.
+                </p>
+</div>
+<div class="pt-2 flex flex-col gap-2">
+<button class="w-full py-2.5 px-4 rounded-lg bg-surface-container-low text-primary font-label-md hover:bg-surface-container-high transition-colors flex items-center justify-center gap-2" type="button">
+<span class="material-symbols-outlined text-base">verified</span>
+<span>Claim Ownership</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 6: Reunited with Owner -->
+<article class="flex flex-col bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 group opacity-90 hover:opacity-100">
+<div class="relative w-full aspect-[4/3] overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Texas Instruments TI-84 Plus CE graphing calculator with bright white casing and colored keypad buttons, photographed sitting on a study desk next to an open calculus textbook." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwToZC0u3evGJx5-ruCaWZ7DxkXtCZfX1rmqIcWovDtlveKar73gJ3MiCum54vbzNfd85vsp4c0TCaYMMl6xEv-QrbTbZdP69mdLw40LZlH3IqCYrvK13pA-93zOdw-pR8B5M26cqhNVORjImROAkM88tMYPZfNnvYVBFn4WsEHlBH9VgLx72_vkug_DLg20jZn9O21TYUpCDm5gf_e5lVIn-UqQz3cxexQ_kXHZYQ1VVyChhDv_g5-A"/>
+<span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-primary font-label-sm text-label-sm shadow-md font-bold">
+<span class="material-symbols-outlined text-xs">check_circle</span>
+                Reunited with Owner
+              </span>
+<span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface-variant font-label-sm text-label-sm font-semibold">
+                Closed Oct 11
+              </span>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-md">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm">
+<span class="uppercase tracking-wider">Electronics</span>
+<span class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">verified_user</span>
+                    Successfully Returned
+                  </span>
+</div>
+<h2 class="font-title text-title text-on-surface font-bold line-clamp-1">
+                  Graphing Calculator (White Casing)
+                </h2>
+<div class="flex items-center gap-1.5 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-base text-outline">location_on</span>
+<span class="truncate">Returned at Library Desk</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2 mt-1">
+                  Item was successfully returned to owner (Senior Math Dept) after verified PIN entry and serial match.
+                </p>
+</div>
+<div class="pt-2 flex flex-col gap-2">
+<button class="w-full py-2.5 px-4 rounded-lg bg-surface-container text-on-surface-variant font-label-md cursor-not-allowed flex items-center justify-center gap-2" disabled="" type="button">
+<span class="material-symbols-outlined text-base">lock</span>
+<span>Case Closed &amp; Archived</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+<!-- Pagination & Results Meta Footer -->
+<nav aria-label="Directory pagination" class="w-full flex flex-col sm:flex-row items-center justify-between gap-space-md pt-space-md pb-space-lg">
+<span class="font-body-md text-body-md text-on-surface-variant">
+            Showing <strong class="text-on-surface">1–6</strong> of <strong class="text-on-surface">158</strong> campus items
+          </span>
+<div class="flex items-center gap-1.5">
+<button aria-label="Previous Page" class="px-3 py-2 rounded-lg bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed font-label-md flex items-center gap-1" disabled="" type="button">
+<span class="material-symbols-outlined text-base">chevron_left</span>
+<span class="hidden sm:inline">Prev</span>
+</button>
+<button aria-current="page" class="w-9 h-9 rounded-lg bg-primary-container text-on-primary font-label-md font-bold flex items-center justify-center shadow-sm" type="button">
+              1
+            </button>
+<button class="w-9 h-9 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors font-label-md flex items-center justify-center" type="button">
+              2
+            </button>
+<button class="w-9 h-9 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors font-label-md flex items-center justify-center" type="button">
+              3
+            </button>
+<span class="px-1 text-on-surface-variant">…</span>
+<button class="w-9 h-9 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors font-label-md flex items-center justify-center" type="button">
+              27
+            </button>
+<button aria-label="Next Page" class="px-3 py-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-surface-container-high transition-colors font-label-md flex items-center gap-1 shadow-sm" type="button">
+<span class="hidden sm:inline">Next Page</span>
+<span class="material-symbols-outlined text-base">chevron_right</span>
+</button>
+</div>
+</nav>
+<!-- Informational Banner for Missing Items -->
+<div class="w-full bg-gradient-to-r from-surface-container-low via-surface-container to-surface-container-low p-space-lg rounded-2xl flex flex-col md:flex-row items-center justify-between gap-space-md shadow-sm">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center shrink-0 text-secondary">
+<span class="material-symbols-outlined text-2xl">help_outline</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-primary">Can't find what you're looking for?</span>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                Create a detailed Lost Property Report so our AI matchmaking system can automatically alert you the moment it is handed to any campus desk.
+              </p>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0 w-full md:w-auto">
+<a class="w-full md:w-auto text-center px-5 py-2.5 rounded-lg bg-secondary text-on-secondary font-label-md hover:bg-on-secondary-container transition-colors shadow-sm" data-path="report-lost" href="#">
+              Report Lost Item
+            </a>
+</div>
+</div>
+</main>
+</div>
+</section>
+</div></main><footer class="w-full bg-surface-container-low mt-auto py-space-xl shadow-[0_-1px_6px_rgba(27,42,34,0.03)]"><div class="w-full px-margin"><div class="grid grid-cols-1 md:grid-cols-3 gap-gutter items-start pb-space-lg"><div class="flex flex-col gap-space-xs"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary">verified_user</span><span class="font-title text-title text-primary">Campus Security &amp; Safety</span></div><p class="font-body-md text-body-md text-on-surface-variant">In official partnership with Caldwell University Campus Police, Student Union Staff, and Facilities Operations.</p></div><div class="flex flex-col gap-space-xs"><span class="font-label-md text-label-md text-on-surface font-semibold">Safe Handover Stations</span><ul class="flex flex-col gap-1 font-body-md text-body-md text-on-surface-variant"><li>• Student Union Front Desk (Open 24/7)</li><li>• Main Campus Library Circulation Desk</li><li>• Caldwell Health &amp; Athletics Center Concierge</li></ul></div><div class="flex flex-col gap-space-xs"><span class="font-label-md text-label-md text-on-surface font-semibold">Compliance &amp; Guidance</span><div class="flex flex-wrap gap-x-space-md gap-y-1 font-label-md text-label-md text-on-surface-variant"><a class="hover:text-primary transition-colors" data-path="property-compliance-regulations" href="#">Lost Property Regulations</a><a class="hover:text-primary transition-colors" data-path="privacy-policy" href="#">Privacy Policy</a><a class="hover:text-primary transition-colors" data-path="campus-emergency-info" href="#">Emergency Contacts</a></div><p class="font-label-sm text-label-sm text-on-surface-variant mt-2">© 2025 Caldwell University FindSync Initiative. All institutional property claims are logged under state university regulations.</p></div></div></div></footer></body></html>

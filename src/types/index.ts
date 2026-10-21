@@ -1,0 +1,123 @@
+export type ItemType = 'lost' | 'found';
+
+export type ItemStatus = 'in_custody' | 'active_search' | 'under_review' | 'reunited';
+
+export type ItemCategory =
+  | 'Electronics'
+  | 'Bags & Backpacks'
+  | 'Clothing'
+  | 'Wallets & IDs'
+  | 'Keys & Badges'
+  | 'Books & Notes'
+  | 'Jewelry / Watch'
+  | 'Personal Essentials'
+  | 'Other Asset';
+
+export type CampusId = 'main-campus' | 'downtown-medical' | 'north-research' | 'all-campuses';
+
+export type FacilitySector = 'academic' | 'residence' | 'transit' | 'athletics' | 'student_life';
+
+export interface CampusSite {
+  id: CampusId;
+  name: string;
+  tagline: string;
+  itemCount: number;
+  desksCount: number;
+}
+
+export interface Item {
+  id: string;
+  reportCode: string; // e.g. '#L-2049', '#F-1082', '#LR-8821'
+  type: ItemType;
+  title: string;
+  category: ItemCategory;
+  brand?: string;
+  model?: string;
+  colorway: string; // e.g. 'Matte Black', 'Forest Green', 'Navy Blue'
+  colorHex?: string;
+  description: string;
+  campusId: CampusId;
+  facilitySector: FacilitySector;
+  locationName: string;
+  roomZone?: string;
+  shuttleLine?: string; // e.g. 'Blue Line Shuttle #12'
+  dateLostOrFound: string; // e.g. 'Oct 14, 2024'
+  timeString: string; // e.g. '2:15 PM'
+  status: ItemStatus;
+  statusLabel?: string;
+  binNumber?: string; // e.g. 'BIN #E-14'
+  imageUrl: string;
+  imageAlt: string;
+  imageTagLabel?: string; // 'Original User Photo', 'Staff Intake Photograph'
+  ownerName?: string;
+  ownerId?: string;
+  officerNotes?: string;
+  officerName?: string;
+  matchScore?: number;
+  matchCaseId?: string;
+  confidentialClues?: {
+    uniqueMark?: string;
+    internalContents?: string;
+  };
+  submittedProof?: string;
+  createdAt: string;
+}
+
+export interface MatchFactorBreakdown {
+  categoryAndType: number; // e.g. 100
+  visualAndModel: number; // e.g. 90
+  timeProximity: number; // e.g. 85
+  geospatialProximity: number; // e.g. 80
+}
+
+export interface MatchCase {
+  id: string; // e.g. 'Case #PM-8429'
+  lostItem: Item;
+  foundItem: Item;
+  confidenceScore: number; // 86
+  factorBreakdown: MatchFactorBreakdown;
+  transitTime: string; // '~3 min transit time'
+  distanceMeters: number; // 180
+  corridorDescription: string;
+  lostSiteName: string;
+  lostSiteTime: string;
+  foundSiteName: string;
+  foundSiteTime: string;
+  status: 'under_review' | 'claim_submitted' | 'verified' | 'rejected' | 'saved';
+  claimDetails?: {
+    claimId: string;
+    covertMarkers: string;
+    attachmentName?: string;
+    lossContext?: string;
+    submittedAt: string;
+    reviewingOfficer: string;
+    estimatedTurnaround: string;
+  };
+}
+
+export interface ClaimTracking {
+  claimId: string;
+  itemTitle: string;
+  reportNumber: string;
+  status: 'under_review' | 'approved' | 'handover_ready' | 'closed';
+  currentStep: number; // 1 to 6
+  updatedAgo: string;
+  submittedProof: string;
+  reviewingOfficer: string;
+  officeLocation: string;
+  estimatedVerification: string;
+  resolutionDate?: string;
+}
+
+export interface HandoverStation {
+  id: string;
+  name: string;
+  campusId: CampusId;
+  badge: string;
+  hours: string;
+  location: string;
+  status: string;
+  phone: string;
+}
+
+export type ViewTab = 'explore' | 'potential-matches' | 'report-lost' | 'report-found' | 'my-items' | 'admin-portal';

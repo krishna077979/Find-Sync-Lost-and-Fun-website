@@ -2,10 +2,17 @@ import React from 'react';
 
 interface FooterProps {
   onOpenCampusDesk: () => void;
-  onOpenGuidelines?: () => void;
+  onOpenHelp?: () => void;
+  onOpenTerms?: () => void;
+  onOpenPrivacy?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenCampusDesk }) => {
+export const Footer: React.FC<FooterProps> = ({
+  onOpenCampusDesk,
+  onOpenHelp,
+  onOpenTerms,
+  onOpenPrivacy,
+}) => {
   return (
     <footer className="w-full bg-[#e6f8eb] mt-auto py-10 border-t border-[#d5e7da] text-[#101f17]">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -52,36 +59,27 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCampusDesk }) => {
               Compliance &amp; Guidance
             </span>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] font-semibold text-[#414844]">
-              <a
-                href="#regulations"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('Caldwell University Property Regulation Sec. 4B: Unclaimed property is cataloged for 30 calendar days before institutional transfer.');
-                }}
-                className="hover:text-[#012d1d] transition-colors underline"
+              <button
+                type="button"
+                onClick={onOpenTerms}
+                className="hover:text-[#012d1d] transition-colors underline cursor-pointer"
               >
                 Lost Property Regulations
-              </a>
-              <a
-                href="#privacy"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('Caldwell Privacy Charter: Private clues and identifiers are encrypted and never shown in public catalogues.');
-                }}
-                className="hover:text-[#012d1d] transition-colors underline"
+              </button>
+              <button
+                type="button"
+                onClick={onOpenPrivacy}
+                className="hover:text-[#012d1d] transition-colors underline cursor-pointer"
               >
-                Privacy Policy
-              </a>
-              <a
-                href="#emergency"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('Emergency Contacts: Dial 911 for emergencies or (555) 019-2833 for Caldwell Campus Dispatch.');
-                }}
-                className="hover:text-[#012d1d] transition-colors underline"
+                Privacy Notice &amp; FERPA
+              </button>
+              <button
+                type="button"
+                onClick={onOpenHelp}
+                className="hover:text-[#012d1d] transition-colors underline cursor-pointer"
               >
-                Emergency Contacts
-              </a>
+                Help &amp; FAQs
+              </button>
             </div>
             <p className="text-[11px] text-[#414844] mt-2 leading-relaxed">
               © 2025 Caldwell University FindSync Initiative. All institutional property claims are logged under state university regulations.

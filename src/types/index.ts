@@ -13,7 +13,14 @@ export type ItemCategory =
   | 'Personal Essentials'
   | 'Other Asset';
 
-export type CampusId = 'main-campus' | 'downtown-medical' | 'north-research' | 'all-campuses';
+export type CampusId =
+  | 'sage-bhopal'
+  | 'sage-indore'
+  | 'all-campuses'
+  | 'main-campus'
+  | 'downtown-medical'
+  | 'north-research'
+  | string;
 
 export type FacilitySector = 'academic' | 'residence' | 'transit' | 'athletics' | 'student_life';
 
@@ -23,6 +30,14 @@ export interface CampusSite {
   tagline: string;
   itemCount: number;
   desksCount: number;
+  shortCode?: string;
+}
+
+export interface ItemLocationCoordinates {
+  lat: number;
+  lng: number;
+  formatted?: string;
+  accuracyMeters?: number;
 }
 
 export interface Item {
@@ -37,7 +52,14 @@ export interface Item {
   colorHex?: string;
   description: string;
   campusId: CampusId;
-  facilitySector: FacilitySector;
+  campusName?: string;
+  buildingArea?: string;
+  locationCategory?: string;
+  isOtherLocation?: boolean;
+  otherLocationDescription?: string;
+  locationCoordinates?: ItemLocationCoordinates | string;
+  mapPin?: { x: number; y: number };
+  facilitySector?: FacilitySector;
   locationName: string;
   roomZone?: string;
   shuttleLine?: string; // e.g. 'Blue Line Shuttle #12'
@@ -120,4 +142,35 @@ export interface HandoverStation {
   phone: string;
 }
 
-export type ViewTab = 'explore' | 'potential-matches' | 'report-lost' | 'report-found' | 'my-items' | 'admin-portal';
+export type ViewTab =
+  | 'home'
+  | 'explore'
+  | 'potential-matches'
+  | 'report-lost'
+  | 'report-found'
+  | 'my-items'
+  | 'admin-portal';
+
+export interface AppNotification {
+  id: string;
+  type: 'match' | 'claim_update' | 'evidence_request' | 'handover';
+  title: string;
+  message: string;
+  timeAgo: string;
+  read: boolean;
+  linkTab?: ViewTab;
+  linkParam?: string;
+  badgeLabel?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'student' | 'staff' | 'admin';
+  studentId?: string;
+  phone?: string;
+  campusId: CampusId;
+  department?: string;
+  avatarUrl?: string;
+}

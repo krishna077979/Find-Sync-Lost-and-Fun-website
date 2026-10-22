@@ -7,6 +7,9 @@ interface HeaderProps {
   onSelectTab: (tab: ViewTab) => void;
   onOpenCampusDesk: () => void;
   onOpenReportFound: () => void;
+  onOpenNotificationsModal?: () => void;
+  onOpenAuthModal?: () => void;
+  onOpenHelp?: () => void;
   selectedCampus: CampusId;
   onSelectCampus: (campusId: CampusId) => void;
   matchesCount?: number;
@@ -20,6 +23,9 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   onOpenCampusDesk,
   onOpenReportFound,
+  onOpenNotificationsModal,
+  onOpenAuthModal,
+  onOpenHelp,
   selectedCampus,
   onSelectCampus,
   matchesCount = 1,
@@ -35,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   const currentCampus = CAMPUS_SITES.find((c) => c.id === selectedCampus) || CAMPUS_SITES[0];
 
   const navItems: { id: ViewTab; label: string; badge?: string; isStaff?: boolean; action?: () => void }[] = [
+    { id: 'home', label: 'Home' },
     { id: 'explore', label: 'Explore & Search' },
     { id: 'potential-matches', label: 'Potential Matches', badge: matchesCount > 0 ? `${matchesCount} New` : undefined },
     { id: 'report-lost', label: 'Report Lost' },
@@ -50,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-3 shrink-0">
           <div
             className="flex items-center gap-2 cursor-pointer group"
-            onClick={() => onSelectTab('explore')}
+            onClick={() => onSelectTab('home')}
           >
             <img
               alt="FindSync Logo"
@@ -195,6 +202,18 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Campus Desks</span>
           </button>
 
+          {/* Help & FAQs Button */}
+          {onOpenHelp && (
+            <button
+              type="button"
+              onClick={onOpenHelp}
+              className="p-2 rounded-full text-[#414844] hover:bg-[#dbede0] hover:text-[#101f17] transition-colors cursor-pointer"
+              title="Help, FAQs & Campus Guidelines"
+            >
+              <span className="material-symbols-outlined text-[22px]">help</span>
+            </button>
+          )}
+
           {/* Notifications Trigger */}
           <div className="relative">
             <button
@@ -214,9 +233,16 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-[#d5e7da] p-3 z-50 animate-in fade-in slide-in-from-top-2">
                 <div className="flex items-center justify-between pb-2 border-b border-[#e0f2e6]">
                   <span className="text-[13px] font-bold text-[#012d1d]">Notifications</span>
-                  <span className="text-[11px] text-[#a23e18] font-semibold cursor-pointer hover:underline">
-                    Mark all read
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenNotificationsModal) onOpenNotificationsModal();
+                      setShowNotifications(false);
+                    }}
+                    className="text-[11px] text-[#a23e18] font-bold hover:underline"
+                  >
+                    View All Hub
+                  </button>
                 </div>
                 <div className="flex flex-col gap-2 mt-2 max-h-72 overflow-y-auto">
                   <div
@@ -242,6 +268,16 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenNotificationsModal) onOpenNotificationsModal();
+                    setShowNotifications(false);
+                  }}
+                  className="w-full mt-2 py-1.5 rounded-lg bg-[#e6f8eb] hover:bg-[#dbede0] text-[#012d1d] text-[11px] font-bold text-center block"
+                >
+                  Open Full Notification Center
+                </button>
               </div>
             )}
           </div>
@@ -274,7 +310,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Profile Menu */}
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-[#d5e7da] p-2 z-50 animate-in fade-in">
+              <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-[#d5e7da] p-2 z-50 animate-in fade-in">
                 <div className="p-2 border-b border-[#e0f2e6]">
                   <p className="text-[11px] text-[#414844] font-medium">Signed in as</p>
                   <p className="text-[13px] font-bold text-[#012d1d]">
@@ -282,6 +318,17 @@ export const Header: React.FC<HeaderProps> = ({
                   </p>
                 </div>
                 <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenAuthModal) onOpenAuthModal();
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-[#012d1d] hover:bg-[#e0f2e6] flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">manage_accounts</span>
+                    <span>Account Settings &amp; Login (SSO)</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {

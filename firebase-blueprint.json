@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "Item": {
+      "title": "Item",
+      "description": "Lost or found property item across campus facilities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reportCode": { "type": "string" },
+        "type": { "type": "string", "enum": ["lost", "found"] },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "colorway": { "type": "string" },
+        "description": { "type": "string", "maxLength": 1000 },
+        "campusId": { "type": "string" },
+        "facilitySector": { "type": "string" },
+        "locationName": { "type": "string" },
+        "roomZone": { "type": "string" },
+        "shuttleLine": { "type": "string" },
+        "dateLostOrFound": { "type": "string" },
+        "timeString": { "type": "string" },
+        "status": { "type": "string", "enum": ["in_custody", "active_search", "under_review", "reunited"] },
+        "statusLabel": { "type": "string" },
+        "binNumber": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "imageAlt": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "officerNotes": { "type": "string" },
+        "officerName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["reportCode", "type", "title", "category", "campusId", "status"]
+    },
+    "Claim": {
+      "title": "Claim",
+      "description": "Ownership claim filed by student or staff",
+      "type": "object",
+      "properties": {
+        "claimId": { "type": "string" },
+        "itemTitle": { "type": "string" },
+        "reportNumber": { "type": "string" },
+        "covertMarkers": { "type": "string" },
+        "lossContext": { "type": "string" },
+        "status": { "type": "string", "enum": ["under_review", "approved", "handover_ready", "closed"] },
+        "currentStep": { "type": "number" },
+        "submittedAt": { "type": "string" },
+        "reviewingOfficer": { "type": "string" },
+        "officeLocation": { "type": "string" },
+        "claimantId": { "type": "string" },
+        "claimantEmail": { "type": "string" }
+      },
+      "required": ["claimId", "reportNumber", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Authenticated user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "staff", "admin"] }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/items/{itemId}": {
+      "schema": { "$ref": "#/entities/Item" },
+      "description": "Public and custody logged campus lost & found items."
+    },
+    "/claims/{claimId}": {
+      "schema": { "$ref": "#/entities/Claim" },
+      "description": "Submitted ownership claim verifications."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile information."
+    }
+  }
+}

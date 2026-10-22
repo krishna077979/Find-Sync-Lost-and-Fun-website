@@ -144,6 +144,17 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     });
   }, [items, selectedCampus, selectedSector, selectedFacilityChip, searchQuery, selectedPill, sortBy, statusFilters, categoryFilters, selectedColor]);
 
+  const ITEMS_PER_PAGE = 6;
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  const paginatedItems = useMemo(() => {
+    return filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [filteredItems, currentPage]);
+
+  // Reset to page 1 on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCampus, selectedSector, selectedFacilityChip, selectedPill, sortBy, statusFilters, categoryFilters, selectedColor]);
+
   const resetAllFilters = () => {
     setSearchQuery('');
     setSelectedPill('all');
@@ -160,6 +171,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       'Wallets & IDs': true,
     });
     setSelectedColor(null);
+    setCurrentPage(1);
   };
 
   return (
@@ -809,6 +821,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               </div>
             )}
 
+            {/* Institutional Anti-Assumption Match Disclaimer */}
+            <div className="w-full p-3.5 bg-[#e6f8eb] rounded-xl border border-[#c1ecd4] flex items-start gap-2.5 text-xs text-[#012d1d]">
+              <span className="material-symbols-outlined text-base text-[#1b4332] shrink-0 mt-0.5">info</span>
+              <div>
+                <strong>Algorithmic Correlation Notice:</strong> Match percentages denote statistical similarity (visual features, timeline proximity, and building corridor models) and do <em>not</em> constitute legal verification of ownership. Formal custody handover requires physical or photo ID and validation of confidential covert identifiers at designated desks.
+              </div>
+            </div>
+
             {/* Responsive Items Grid / List */}
             <div
               className={`w-full ${
@@ -817,7 +837,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                   : 'flex flex-col gap-3'
               }`}
             >
-              {filteredItems.map((item) => {
+              {paginatedItems.map((item) => {
                 const isFound = item.type === 'found';
                 const isLost = item.type === 'lost';
                 const hasMatch = item.status === 'under_review' || Boolean(item.matchScore);
@@ -932,12 +952,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              alert(`Thank you! A match tip for ${item.title} has been sent to Caldwell Safety.`);
+                              onOpenReportFound();
                             }}
                             className="w-full py-2 px-4 rounded-lg bg-[#a23e18] hover:bg-[#822801] text-white text-[13px] font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                           >
                             <span className="material-symbols-outlined text-base">visibility</span>
-                            <span>I Found This Item / Report Match</span>
+                            <span>I Found This / Handover at Desk</span>
                           </button>
                         ) : (
                           <button
@@ -957,43 +977,58 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             </div>
 
             {/* Pagination Controls */}
-            <nav aria-label="Directory pagination" className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 pb-4 border-t border-[#d5e7da]">
-              <span className="text-[13px] text-[#414844]">
-                Showing <strong className="text-[#101f17]">1–{filteredItems.length}</strong> campus items
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 rounded-lg border border-[#d5e7da] bg-white text-[#414844] text-[12px] font-semibold flex items-center gap-1 disabled:opacity-50 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-base">chevron_left</span>
-                  <span>Prev</span>
-                </button>
-                <button
-                  type="button"
-                  className="w-8 h-8 rounded-lg text-[13px] font-bold flex items-center justify-center bg-[#1b4332] text-white shadow-xs"
-                >
-                  1
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(2)}
-                  className="w-8 h-8 rounded-lg text-[13px] font-bold flex items-center justify-center bg-white border border-[#d5e7da] text-[#101f17] hover:bg-[#e0f2e6] cursor-pointer"
-                >
-                  2
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="px-3 py-1.5 rounded-lg border border-[#d5e7da] bg-white text-[#012d1d] hover:bg-[#e0f2e6] text-[12px] font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Next Page</span>
-                  <span className="material-symbols-outlined text-base">chevron_right</span>
-                </button>
-              </div>
-            </nav>
+            {filteredItems.length > 0 && (
+              <nav aria-label="Directory pagination" className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 pb-4 border-t border-[#d5e7da]">
+                <span className="text-[13px] text-[#414844]">
+                  Showing <strong className="text-[#101f17]">{(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)}</strong> of <strong className="text-[#101f17]">{filteredItems.length}</strong> items
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => {
+                      setCurrentPage((p) => Math.max(1, p - 1));
+                      window.scrollTo({ top: 350, behavior: 'smooth' });
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-[#d5e7da] bg-white text-[#414844] text-[12px] font-semibold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#e0f2e6] cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base">chevron_left</span>
+                    <span>Prev</span>
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => {
+                        setCurrentPage(pageNum);
+                        window.scrollTo({ top: 350, behavior: 'smooth' });
+                      }}
+                      className={`w-8 h-8 rounded-lg text-[13px] font-bold flex items-center justify-center transition-all cursor-pointer ${
+                        currentPage === pageNum
+                          ? 'bg-[#1b4332] text-white shadow-xs'
+                          : 'bg-white border border-[#d5e7da] text-[#101f17] hover:bg-[#e0f2e6]'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => {
+                      setCurrentPage((p) => Math.min(totalPages, p + 1));
+                      window.scrollTo({ top: 350, behavior: 'smooth' });
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-[#d5e7da] bg-white text-[#012d1d] hover:bg-[#e0f2e6] text-[12px] font-bold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span>Next</span>
+                    <span className="material-symbols-outlined text-base">chevron_right</span>
+                  </button>
+                </div>
+              </nav>
+            )}
           </main>
         </div>
       </section>

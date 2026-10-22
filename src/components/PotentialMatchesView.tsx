@@ -19,6 +19,7 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
     "Packed my laptop in a hurry to attend 2:30 PM Organic Chemistry Lab in Hall 3."
   );
   const [honorCodeChecked, setHonorCodeChecked] = useState(false);
+  const [honorCodeError, setHonorCodeError] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string } | null>({
     name: 'sony_connect_app_registered.png',
     size: '1.4 MB',
@@ -27,6 +28,9 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
   const [claimSubmitted, setClaimSubmitted] = useState(false);
   const [claimSaved, setClaimSaved] = useState(false);
   const [matchRejected, setMatchRejected] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('Color / finish discrepancy (e.g. Matte Black vs Silver)');
+  const [handoverConfirmed, setHandoverConfirmed] = useState(false);
 
   const handleScrollToClaim = () => {
     const el = document.getElementById('claimDrawerSection');
@@ -50,9 +54,10 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
   const handleSubmitClaim = (e: React.FormEvent) => {
     e.preventDefault();
     if (!honorCodeChecked) {
-      alert('Please acknowledge the Caldwell University Student Honor Code attestation.');
+      setHonorCodeError('Please check the Caldwell Student Honor Code attestation to proceed.');
       return;
     }
+    setHonorCodeError(null);
 
     setIsSubmitting(true);
     setTimeout(() => {
@@ -68,10 +73,9 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
     }, 1000);
   };
 
-  const handleReject = () => {
-    if (confirm('Flag this pair as an incorrect match? This will remove it from your potential match feed.')) {
-      setMatchRejected(true);
-    }
+  const handleConfirmReject = () => {
+    setMatchRejected(true);
+    setIsRejectModalOpen(false);
   };
 
   const handleSaveForLater = () => {
@@ -602,7 +606,7 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
         <div className="flex items-center flex-wrap gap-3 w-full md:w-auto">
           <button
             type="button"
-            onClick={handleReject}
+            onClick={() => setIsRejectModalOpen(true)}
             disabled={matchRejected}
             className={`px-4 py-2.5 rounded-lg text-[13px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
               matchRejected
@@ -611,7 +615,7 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
             }`}
           >
             <span className="material-symbols-outlined text-base">close</span>
-            <span>{matchRejected ? 'Feedback Logged (Rejected)' : 'Not Mine'}</span>
+            <span>{matchRejected ? 'Flagged as Incorrect Match' : 'Flag Incorrect Match'}</span>
           </button>
 
           <button
@@ -769,6 +773,13 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
           </div>
 
           {/* Honor Code Attestation */}
+          {honorCodeError && (
+            <div className="p-3 bg-[#ffdad6] text-[#ba1a1a] text-xs font-bold rounded-xl flex items-center gap-2 border border-[#ffb4ab]">
+              <span className="material-symbols-outlined text-base">error</span>
+              <span>{honorCodeError}</span>
+            </div>
+          )}
+
           <div className="p-4 rounded-xl bg-[#e6f8eb] border border-[#c1ecd4] flex items-start gap-3">
             <input
               id="honorCodeCheck"
@@ -832,28 +843,127 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
           </div>
         </form>
 
-        {/* Confirmation Banner */}
+        {/* Confirmation Banner & Handover Coordination */}
         {claimSubmitted && (
-          <div id="claimSuccessToast" className="p-4 rounded-xl bg-[#c1ecd4] text-[#002114] flex items-start gap-3 border border-[#85f8c4] animate-in fade-in slide-in-from-top-2">
-            <span className="material-symbols-outlined text-2xl shrink-0 text-[#012d1d]">task_alt</span>
-            <div className="flex flex-col">
-              <span className="text-[16px] font-bold text-[#012d1d]">Ownership Claim Transmitted Successfully!</span>
-              <p className="text-[13px] text-[#274e3d] mt-0.5 leading-relaxed">
-                Claim reference <strong>#CLM-3091</strong> is logged with Officer Ramirez. You will receive an SMS and email notification once verified. You may proceed to Student Union Desk Counter #2 with your student ID card.
-              </p>
-              <div className="mt-3 flex items-center gap-3">
+          <div id="claimSuccessToast" className="p-5 rounded-xl bg-[#c1ecd4] text-[#002114] flex flex-col gap-4 border border-[#85f8c4] animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-2xl shrink-0 text-[#012d1d]">task_alt</span>
+              <div className="flex flex-col">
+                <span className="text-[16px] font-bold text-[#012d1d]">Ownership Claim Transmitted Successfully!</span>
+                <p className="text-[13px] text-[#274e3d] mt-0.5 leading-relaxed">
+                  Claim reference <strong>#CLM-3091</strong> is logged with Officer Ramirez. You will receive an SMS and email notification once verified. You may proceed to Student Union Desk Counter #2 with your student ID card.
+                </p>
+              </div>
+            </div>
+
+            {/* Handover confirmation action */}
+            <div className="p-3.5 bg-white/80 rounded-xl border border-[#a2dfbd] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div>
+                <strong className="text-[#012d1d] block">Physical Pickup &amp; Return Handover:</strong>
+                <span className="text-[#414844]">
+                  {handoverConfirmed
+                    ? 'Item return has been confirmed! Property case marked as successfully recovered.'
+                    : 'Once you pick up your item at Desk #2, confirm receipt below to complete the chain of custody.'}
+                </span>
+              </div>
+              {!handoverConfirmed ? (
                 <button
                   type="button"
-                  onClick={() => onNavigateToTab('my-items')}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#012d1d] text-white text-[12px] font-bold hover:bg-[#1b4332] cursor-pointer"
+                  onClick={() => setHandoverConfirmed(true)}
+                  className="px-4 py-2 rounded-lg bg-[#012d1d] text-white font-bold hover:bg-[#1b4332] shrink-0 cursor-pointer shadow-xs"
                 >
-                  Track in My Items →
+                  Confirm Item Received &amp; Handover Complete
                 </button>
-              </div>
+              ) : (
+                <span className="px-3 py-1 bg-[#1b4332] text-white font-bold rounded-lg shrink-0 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">done_all</span>
+                  <span>Handover Verified</span>
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onNavigateToTab('my-items')}
+                className="px-3.5 py-1.5 rounded-lg bg-[#012d1d] text-white text-[12px] font-bold hover:bg-[#1b4332] cursor-pointer"
+              >
+                Track in My Items →
+              </button>
             </div>
           </div>
         )}
       </section>
+
+      {/* Report Incorrect Match / Flag False Positive Modal */}
+      {isRejectModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#012d1d]/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#d5e7da] animate-in fade-in zoom-in-95 flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[#e0f2e6]">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#a23e18]">flag</span>
+                <h3 className="text-[17px] font-bold text-[#012d1d]">Flag Incorrect Match</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                className="p-1 rounded-lg text-[#717973] hover:text-[#101f17]"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <p className="text-xs text-[#414844] leading-relaxed">
+              Help calibrate the Caldwell matching algorithm. Why does this turned-in item not belong to your lost report?
+            </p>
+
+            <div className="flex flex-col gap-2">
+              {[
+                'Color / finish discrepancy (e.g. Matte Black vs Silver)',
+                'Different brand or model variant',
+                'Geographic corridor mismatch (different campus / transit line)',
+                'Already retrieved my property through other means',
+                'Other false correlation',
+              ].map((reason) => (
+                <label
+                  key={reason}
+                  className={`p-2.5 rounded-xl border text-xs font-semibold cursor-pointer flex items-center gap-2 transition-all ${
+                    rejectReason === reason
+                      ? 'border-[#012d1d] bg-[#e6f8eb] text-[#012d1d]'
+                      : 'border-[#d5e7da] text-[#414844] hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="rejectReason"
+                    checked={rejectReason === reason}
+                    onChange={() => setRejectReason(reason)}
+                    className="accent-[#012d1d]"
+                  />
+                  <span>{reason}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e0f2e6]">
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                className="px-4 py-2 rounded-lg bg-[#e0f2e6] text-[#101f17] text-xs font-bold hover:bg-[#d5e7da]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                className="px-4 py-2 rounded-lg bg-[#a23e18] text-white text-xs font-bold hover:bg-[#853011] shadow-xs cursor-pointer"
+              >
+                Dismiss Pair as False Positive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

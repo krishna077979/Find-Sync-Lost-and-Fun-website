@@ -1,4 +1,4 @@
-import { Item, MatchCase, ClaimTracking, CampusSite, HandoverStation } from '../types';
+import { Item, MatchCase, ClaimTracking, CampusSite, HandoverStation, AppNotification, UserProfile } from '../types';
 
 export const CAMPUS_SITES: CampusSite[] = [
   {
@@ -573,5 +573,73 @@ export const HANDOVER_STATIONS: HandoverStation[] = [
     location: 'Clinical Center Ground Floor Security Station',
     status: 'Open Now',
     phone: 'ext. 4911',
+  },
+];
+
+export const INITIAL_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: 'notif-1',
+    type: 'match',
+    title: 'High-Confidence AI Match Found (86%)',
+    message: 'Found property #F-1082 (Sony Over-Ear Headphones) matches your lost report #L-2049 in Student Union.',
+    timeAgo: '12m ago',
+    read: false,
+    linkTab: 'potential-matches',
+    badgeLabel: 'New Match',
+  },
+  {
+    id: 'notif-2',
+    type: 'claim_update',
+    title: 'Claim #CLM-9204 Under Review',
+    message: 'Staff Officer R. Ramirez is reviewing your serial number verification for the headphones.',
+    timeAgo: '45m ago',
+    read: false,
+    linkTab: 'my-items',
+    badgeLabel: 'In Progress',
+  },
+  {
+    id: 'notif-3',
+    type: 'evidence_request',
+    title: 'Additional Evidence Request',
+    message: 'Please provide proof of ownership or photo receipt to expedite custody release at Student Union Desk.',
+    timeAgo: '3h ago',
+    read: true,
+    linkTab: 'my-items',
+    badgeLabel: 'Action Needed',
+  },
+  {
+    id: 'notif-4',
+    type: 'handover',
+    title: 'Property Ready for Handover',
+    message: 'Cardholder #TR-3419 was safely handed back to student owner at Main Library East Wing.',
+    timeAgo: '1d ago',
+    read: true,
+    linkTab: 'explore',
+    badgeLabel: 'Reunited',
+  },
+];
+
+export const INITIAL_USERS: UserProfile[] = [
+  {
+    id: 'usr-student-1',
+    name: 'Maya Lin',
+    email: 'maya.lin@caldwell.edu',
+    role: 'student',
+    studentId: 'CW-2024-8192',
+    phone: '(555) 342-9102',
+    campusId: 'main-campus',
+    department: 'Computer Science & Design',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+  },
+  {
+    id: 'usr-staff-1',
+    name: 'Staff Officer R. Ramirez',
+    email: 'r.ramirez@caldwell.edu',
+    role: 'staff',
+    studentId: 'OFFICER-#ST-44',
+    phone: '(555) 019-4420',
+    campusId: 'main-campus',
+    department: 'Campus Safety & Property Custody',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
   },
 ];

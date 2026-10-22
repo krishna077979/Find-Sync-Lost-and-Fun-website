@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "kvthegamer1234@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidItem(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.campusId is string && data.campusId.size() <= 100 &&
+             data.type in ['lost', 'found'] &&
+             data.status in ['in_custody', 'active_search', 'under_review', 'reunited'];
+    }
+
+    function isValidClaim(data) {
+      return data.claimId is string && data.claimId.size() <= 100 &&
+             data.reportNumber is string && data.reportNumber.size() <= 100 &&
+             data.status in ['under_review', 'approved', 'handover_ready', 'closed'];
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Items collection (Campus lost and found property)
+    match /items/{itemId} {
+      // Anyone can browse campus lost and found items
+      allow get, list: if true;
+
+      // Anyone authenticated or student/staff can report lost/found items with valid payload
+      allow create: if isValidId(itemId) && isValidItem(incoming());
+
+      // Only staff/admin or original owner can update
+      allow update: if isValidId(itemId) && isValidItem(incoming()) && (
+        isAdmin() ||
+        (isSignedIn() && existing().ownerId == request.auth.uid) ||
+        // Allow status update by custody desk
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusLabel', 'binNumber', 'matchScore', 'matchCaseId'])
+      );
+
+      allow delete: if isValidId(itemId) && isAdmin();
+    }
+
+    // Claims collection (Ownership verifications)
+    match /claims/{claimId} {
+      allow get: if isValidId(claimId) && (
+        isAdmin() ||
+        (isSignedIn() && resource.data.claimantId == request.auth.uid)
+      );
+
+      allow list: if isAdmin() || (
+        isSignedIn() && resource.data.claimantId == request.auth.uid
+      );
+
+      allow create: if isValidId(claimId) && isValidClaim(incoming());
+
+      allow update: if isValidId(claimId) && isValidClaim(incoming()) && (
+        isAdmin() ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'currentStep', 'updatedAgo', 'reviewingOfficer'])
+      );
+
+      allow delete: if isValidId(claimId) && isAdmin();
+    }
+
+    // User profile collection
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isOwner(userId) && incoming().uid == request.auth.uid;
+      allow update: if isValidId(userId) && (isOwner(userId) || isAdmin()) && incoming().uid == existing().uid;
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Admins collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

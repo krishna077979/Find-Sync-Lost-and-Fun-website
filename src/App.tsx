@@ -15,6 +15,7 @@ import { NotificationsModal } from './components/NotificationsModal';
 import { AuthModal } from './components/AuthModal';
 import { HelpSupportModal } from './components/HelpSupportModal';
 import { TermsPrivacyModal } from './components/TermsPrivacyModal';
+import { LoginView } from './components/LoginView';
 import { testConnection } from './lib/firebase';
 import {
   seedInitialItemsIfEmpty,
@@ -26,8 +27,33 @@ import {
 } from './services/itemsService';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const stored = localStorage.getItem('findsync_user_session');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // ignore
+    }
+    return null; // Login screen appears first for unauthenticated users
+  });
+
+  const [userRole, setUserRole] = useState<'student' | 'staff'>(() => {
+    try {
+      const stored = localStorage.getItem('findsync_user_session');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.role === 'staff' || u.role === 'admin') return 'staff';
+      }
+    } catch {
+      // ignore
+    }
+    return 'student';
+  });
+
   const [activeTab, setActiveTab] = useState<ViewTab>('home');
-  const [selectedCampus, setSelectedCampus] = useState<CampusId>('all-campuses');
+  const [selectedCampus, setSelectedCampus] = useState<CampusId>('sage-bhopal');
   const [items, setItems] = useState<Item[]>(INITIAL_ITEMS);
   const [matchCase, setMatchCase] = useState<MatchCase>(CURRENT_MATCH_CASE);
   const [claimTracking, setClaimTracking] = useState<ClaimTracking>(INITIAL_CLAIM_TRACKING);
@@ -38,8 +64,6 @@ export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [termsInitialTab, setTermsInitialTab] = useState<'privacy' | 'terms' | 'regulations'>('privacy');
-  const [userRole, setUserRole] = useState<'student' | 'staff'>('student');
-  const [currentUser, setCurrentUser] = useState<UserProfile>(INITIAL_USERS[0]);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -62,14 +86,26 @@ export default function App() {
     };
   }, []);
 
+  // Enforce role-based access control: regular students cannot access Admin Portal
+  useEffect(() => {
+    if (activeTab === 'admin-portal' && userRole !== 'staff') {
+      setActiveTab('home');
+      showNotificationToast('Admin Portal access is restricted to campus safety staff.');
+    }
+  }, [activeTab, userRole]);
+
   const showNotificationToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
-      setToastMessage(null);
+      setToastMessage(null), 4000;
     }, 4000);
   };
 
   const handleSelectTab = (tab: ViewTab) => {
+    if (tab === 'admin-portal' && userRole !== 'staff') {
+      showNotificationToast('Admin Portal access requires Campus Safety Officer credentials.');
+      return;
+    }
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -119,7 +155,7 @@ export default function App() {
       updatedAgo: 'Just now',
     };
     setClaimTracking(updatedClaim);
-    showNotificationToast('Officer Ramirez approved ID and released headphones for Student Union pickup.');
+    showNotificationToast('Officer Ramirez approved ID and released headphones for pickup.');
     await saveClaimToFirestore(updatedClaim);
   };
 
@@ -140,24 +176,61 @@ export default function App() {
 
   const handleSwitchUser = (user: UserProfile) => {
     setCurrentUser(user);
-    const role = user.role === 'staff' ? 'staff' : 'student';
+    const role = user.role === 'staff' || user.role === 'admin' ? 'staff' : 'student';
     setUserRole(role);
+    try {
+      localStorage.setItem('findsync_user_session', JSON.stringify(user));
+    } catch {
+      // ignore
+    }
     showNotificationToast(`Logged in as ${user.name} (${user.role.toUpperCase()})`);
   };
 
   const handleLogout = () => {
-    setCurrentUser({
-      id: 'guest',
-      name: 'Guest Visitor',
-      email: 'visitor@caldwell.edu',
-      role: 'student',
-      campusId: 'main-campus',
-    });
-    setUserRole('student');
-    showNotificationToast('Signed out from Caldwell SSO session.');
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('findsync_user_session');
+    } catch {
+      // ignore
+    }
+    setActiveTab('home');
+    showNotificationToast('Signed out from FindSync session.');
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // CRITICAL: Unauthenticated users see the Login interface first.
+  // No main navigation or private reports are displayed before authentication.
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#fbfdf9]">
+        {toastMessage && (
+          <div className="fixed bottom-6 right-6 z-50 bg-[#012d1d] text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 text-[13px] font-semibold animate-in fade-in slide-in-from-bottom-2 border border-[#c1ecd4]">
+            <span className="material-symbols-outlined text-lg text-[#c1ecd4]">task_alt</span>
+            <span>{toastMessage}</span>
+          </div>
+        )}
+        <LoginView
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            const role = user.role === 'staff' || user.role === 'admin' ? 'staff' : 'student';
+            setUserRole(role);
+            try {
+              localStorage.setItem('findsync_user_session', JSON.stringify(user));
+            } catch {
+              // ignore
+            }
+            if (role === 'staff') {
+              setActiveTab('admin-portal');
+            } else {
+              setActiveTab('home');
+            }
+            showNotificationToast(`Authenticated successfully as ${user.name}`);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#ecfef1] text-[#101f17] flex flex-col justify-between selection:bg-[#1b4332] selection:text-white font-sans">
@@ -183,17 +256,31 @@ export default function App() {
         matchesCount={1}
         unreadNotifications={unreadCount}
         userRole={userRole}
+        currentUser={currentUser}
+        onLogout={handleLogout}
         onToggleRole={() => {
           const next = userRole === 'student' ? 'staff' : 'student';
           setUserRole(next);
           if (next === 'staff') {
-            setCurrentUser(INITIAL_USERS[1]);
+            const staffUser = INITIAL_USERS[1];
+            setCurrentUser(staffUser);
+            try {
+              localStorage.setItem('findsync_user_session', JSON.stringify(staffUser));
+            } catch {
+              // ignore
+            }
             setActiveTab('admin-portal');
             showNotificationToast('Switched to Campus Safety Staff Officer Mode (#ST-44)');
           } else {
-            setCurrentUser(INITIAL_USERS[0]);
+            const studentUser = INITIAL_USERS[0];
+            setCurrentUser(studentUser);
+            try {
+              localStorage.setItem('findsync_user_session', JSON.stringify(studentUser));
+            } catch {
+              // ignore
+            }
             setActiveTab('home');
-            showNotificationToast('Switched to Maya Lin (Student View)');
+            showNotificationToast('Switched to Maya Lin (Student / Finder View)');
           }
         }}
       />
@@ -253,18 +340,13 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'admin-portal' && (
+          {activeTab === 'admin-portal' && userRole === 'staff' && (
             <AdminPortalView
               items={items}
               matchCase={matchCase}
-              currentUser={currentUser}
-              onSwitchToStaff={() => {
-                setUserRole('staff');
-                setCurrentUser(INITIAL_USERS[1]);
-                showNotificationToast('Switched to Campus Safety Staff Officer Mode (#ST-44)');
-              }}
               onApproveClaim={handleApproveClaimByStaff}
               onNavigateToMatch={() => handleSelectTab('potential-matches')}
+              currentUser={currentUser || undefined}
             />
           )}
         </div>
@@ -317,7 +399,7 @@ export default function App() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        currentUser={currentUser}
+        currentUser={currentUser || INITIAL_USERS[0]}
         onSwitchUser={handleSwitchUser}
         onLogout={handleLogout}
       />

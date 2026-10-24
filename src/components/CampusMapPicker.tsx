@@ -48,13 +48,13 @@ export const CampusMapPicker: React.FC<CampusMapPickerProps> = ({
     // Find closest area or set custom coordinate
     let closest: CampusLocationArea | null = null;
     let minDist = 9999;
-    areas.forEach((p) => {
+    for (const p of areas) {
       const dist = Math.hypot(p.x - x, p.y - y);
       if (dist < minDist) {
         minDist = dist;
         closest = p;
       }
-    });
+    }
 
     if (closest && minDist <= 10) {
       setCustomPin({ x: closest.x, y: closest.y });
@@ -113,13 +113,13 @@ export const CampusMapPicker: React.FC<CampusMapPickerProps> = ({
         // Find nearest campus building if within campus bounds
         let closestArea: CampusLocationArea | null = null;
         let minGeoDist = 999999;
-        areas.forEach((a) => {
+        for (const a of areas) {
           const d = Math.hypot(a.lat - latitude, a.lng - longitude);
           if (d < minGeoDist) {
             minGeoDist = d;
             closestArea = a;
           }
-        });
+        }
 
         // If reasonably close to campus (within ~0.02 deg ~ 2km), snap or place pin
         if (closestArea && minGeoDist < 0.008) {

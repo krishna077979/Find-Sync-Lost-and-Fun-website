@@ -1,5 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Item, ClaimTracking, ViewTab } from '../types';
+
+interface FinderClaim {
+  id: string;
+  foundItemId: string;
+  itemTitle: string;
+  itemReportCode: string;
+  claimantName: string;
+  claimantContact: string;
+  submittedAt: string;
+  secretClueSubmitted: string;
+  status: 'pending_finder_review' | 'handover_scheduled' | 'returned_confirmed' | 'rejected';
+  scheduledLocation?: string;
+  scheduledTime?: string;
+  handoverNotes?: string;
+}
 
 interface MyItemsViewProps {
   items: Item[];
@@ -25,7 +40,31 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
   const [activeClaim, setActiveClaim] = useState<ClaimTracking>(claimTracking);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Filter items belonging to user Maya Lin
+  // Finder claims management state
+  const [finderClaims, setFinderClaims] = useState<FinderClaim[]>([
+    {
+      id: '#FCLM-8819',
+      foundItemId: 'found-1082',
+      itemTitle: 'Sony WH-1000XM4 Headphones',
+      itemReportCode: '#F-1082',
+      claimantName: 'Maya Lin',
+      claimantContact: 'maya.lin@gmail.com',
+      submittedAt: 'Today, 2:45 PM',
+      secretClueSubmitted: "Device Bluetooth name is 'Maya's XM4'. Inside zipper mesh pocket is a silver USB-C to 3.5mm coiled adapter and a lavender guitar pick.",
+      status: 'pending_finder_review',
+    },
+  ]);
+
+  // Handover modal state
+  const [handoverModalClaim, setHandoverModalClaim] = useState<FinderClaim | null>(null);
+  const [handoverStation, setHandoverStation] = useState('SAGE University Bhopal - Admin & Campus Security Desk');
+  const [handoverTimeSlot, setHandoverTimeSlot] = useState('Tomorrow, 11:30 AM – 1:00 PM');
+  const [handoverSafetyNotes, setHandoverSafetyNotes] = useState('Bring your student ID card or photo verification.');
+
+  // Return receipt confirmation modal state
+  const [receiptClaim, setReceiptClaim] = useState<FinderClaim | null>(null);
+
+  // Filter items belonging to user Maya Lin or found by user
   const userItems = items.filter((i) => i.ownerName === 'Maya Lin' || i.type === 'found');
 
   const showToast = (msg: string) => {
@@ -42,16 +81,85 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
   const handleProvideEvidence = () => {
     const detail = prompt('Enter additional distinctive marks or upload reference link:');
     if (detail) {
-      showToast('Additional verification notes transmitted to Officer Martinez.');
+      showToast('Additional verification notes transmitted to Campus Security Desk.');
     }
   };
 
   const handleMessageDesk = () => {
-    const msg = prompt('Send secure message to Officer Martinez:');
+    const msg = prompt('Send secure message to Campus Safety Desk:');
     if (msg) {
-      showToast('Message sent to Student Union Custody Desk.');
+      showToast('Message sent to Campus Custody Desk.');
     }
   };
+
+  // Finder Handover actions
+  const handleOpenHandoverModal = (claim: FinderClaim) => {
+    setHandoverModalClaim(claim);
+  };
+
+  const handleSaveHandoverCoordination = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!handoverModalClaim) return;
+
+    setFinderClaims((prev) =>
+      prev.map((c) =>
+        c.id === handoverModalClaim.id
+          ? {
+              ...c,
+              status: 'handover_scheduled',
+              scheduledLocation: handoverStation,
+              scheduledTime: handoverTimeSlot,
+              handoverNotes: handoverSafetyNotes,
+            }
+          : c
+      )
+    );
+
+    showToast(`Handover scheduled at ${handoverStation}. Notification transmitted to ${handoverModalClaim.claimantName}.`);
+    setHandoverModalClaim(null);
+  };
+
+  const handleConfirmItemReturned = (claim: FinderClaim) => {
+    setFinderClaims((prev) =>
+      prev.map((c) =>
+        c.id === claim.id
+          ? { ...c, status: 'returned_confirmed' }
+          : c
+      )
+    );
+    setReceiptClaim(claim);
+    showToast(`Official handover confirmed. Item ${claim.itemReportCode} returned to owner!`);
+  };
+
+  const handleDeclineClaim = (claimId: string) => {
+    if (confirm('Are you sure the provided ownership evidence does not match?')) {
+      setFinderClaims((prev) =>
+        prev.map((c) =>
+          c.id === claimId ? { ...c, status: 'rejected' } : c
+        )
+      );
+      showToast(`Claim ${claimId} declined due to mismatched identifiers.`);
+    }
+  };
+
+  const handleRequestMoreFinderEvidence = (claimId: string) => {
+    const note = prompt('What additional evidence should the claimant provide?');
+    if (note) {
+      showToast(`Request for additional evidence sent to claimant.`);
+    }
+  };
+
+  // Filter items by selected subtab
+  const displayedItems = useMemo(() => {
+    return userItems.filter((item) => {
+      if (selectedSubTab === 'lost') return item.type === 'lost';
+      if (selectedSubTab === 'found') return item.type === 'found';
+      if (selectedSubTab === 'matches') return item.status === 'under_review' || Boolean(item.matchScore);
+      if (selectedSubTab === 'claims') return item.submittedProof || activeClaim.reportNumber === item.reportCode;
+      if (selectedSubTab === 'reunited') return item.status === 'reunited';
+      return true;
+    });
+  }, [userItems, selectedSubTab, activeClaim]);
 
   return (
     <div className="w-full flex flex-col gap-6">
@@ -69,13 +177,13 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
           <div className="flex items-center gap-1.5 text-[#414844] text-[11px] uppercase tracking-wider font-bold">
             <span className="text-[#012d1d]">FindSync Personal Portal</span>
             <span>/</span>
-            <span>Claim Verification Center</span>
+            <span>Items &amp; Handover Center</span>
           </div>
           <h1 className="text-[28px] md:text-[34px] font-bold text-[#012d1d] tracking-tight">
             My Campus Items &amp; Claims
           </h1>
           <p className="text-[14px] text-[#414844] max-w-3xl leading-relaxed">
-            Track your reported lost belongings, items you found and turned in, potential AI matches, and active ownership verification claims in real-time.
+            Track your reported lost belongings, items you found and turned in, respond to claims, coordinate safe handovers, and confirm returns in real-time.
           </p>
         </div>
 
@@ -111,9 +219,9 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
               : 'text-[#414844] hover:bg-[#e0f2e6]'
           }`}
         >
-          <span>All My Activity</span>
+          <span>All Activity</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[11px] ${selectedSubTab === 'all' ? 'bg-[#1b4332] text-white' : 'bg-[#e0f2e6] text-[#012d1d]'}`}>
-            5
+            {userItems.length}
           </span>
         </button>
 
@@ -127,7 +235,9 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
           }`}
         >
           <span>Lost Reports</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">2</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">
+            {userItems.filter((i) => i.type === 'lost').length}
+          </span>
         </button>
 
         <button
@@ -139,8 +249,10 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
               : 'text-[#414844] hover:bg-[#e0f2e6]'
           }`}
         >
-          <span>Found Items Logged</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">1</span>
+          <span>Found Items &amp; Handover Hub</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">
+            {userItems.filter((i) => i.type === 'found').length}
+          </span>
         </button>
 
         <button
@@ -154,7 +266,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
         >
           <span className="w-2 h-2 rounded-full bg-[#a23e18] animate-pulse" />
           <span>Potential Matches</span>
-          <span className="bg-[#a23e18] text-white px-1.5 py-0.2 rounded-full text-[10px] font-bold">1 New!</span>
+          <span className="bg-[#a23e18] text-white px-1.5 py-0.2 rounded-full text-[10px] font-bold">1 New</span>
         </button>
 
         <button
@@ -167,7 +279,9 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
           }`}
         >
           <span>Active Claims</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">1</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">
+            {finderClaims.length + 1}
+          </span>
         </button>
 
         <button
@@ -179,8 +293,10 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
               : 'text-[#414844] hover:bg-[#e0f2e6]'
           }`}
         >
-          <span>Resolved &amp; Reunited</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">1</span>
+          <span>Resolved &amp; Returned</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-[#dbede0] text-[#101f17] text-[11px]">
+            {userItems.filter((i) => i.status === 'reunited').length}
+          </span>
         </button>
       </div>
 
@@ -195,15 +311,15 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] uppercase px-2 py-0.5 rounded-full bg-[#a23e18] text-white font-bold">
-                    86% Confidence Match
+                    Potential Match Candidate
                   </span>
-                  <span className="text-[11px] text-[#414844]">Logged 35m ago</span>
+                  <span className="text-[11px] text-[#414844]">Updated recently</span>
                 </div>
                 <h2 className="text-[18px] text-[#101f17] font-bold">
-                  Good news Maya! High-confidence match found for your Sony Headphones
+                  High-confidence match candidate identified for Sony Headphones
                 </h2>
                 <p className="text-[13px] text-[#414844] max-w-2xl leading-relaxed">
-                  Caldwell Student Union Custodial Desk logged a matching black pair found near 2nd Floor Study Lounges. Color, model, and physical ear-cup markings align with your loss report.
+                  Campus Custodial Desk logged a matching black pair. Color, model, and physical markings correlate with your loss report.
                 </p>
               </div>
             </div>
@@ -228,6 +344,166 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* FINDER WORKFLOW SECTION: Claims on Found Items */}
+      <section className="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-[#d5e7da] flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-[#e0f2e6] gap-2">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl bg-[#e6f8eb] text-[#012d1d] flex items-center justify-center font-bold">
+              <span className="material-symbols-outlined text-xl">handshake</span>
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[18px] text-[#012d1d] font-bold">
+                  Finder Workflow: Ownership Claims &amp; Handover Coordination
+                </h2>
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#c1ecd4] text-[#002114]">
+                  Finder Console
+                </span>
+              </div>
+              <p className="text-[13px] text-[#414844]">
+                Review ownership claims for items you found, respond to evidence, coordinate authorized handover stations, and confirm returns.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenReportFound}
+            className="px-3.5 py-1.5 rounded-lg bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] transition-all cursor-pointer shrink-0"
+          >
+            + Log Another Found Item
+          </button>
+        </div>
+
+        {finderClaims.length === 0 ? (
+          <div className="p-6 text-center text-xs text-[#717973] bg-[#fbfdf9] rounded-xl border border-dashed border-[#d5e7da]">
+            No pending claims for items you have reported found.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {finderClaims.map((claim) => (
+              <div
+                key={claim.id}
+                className="p-4 rounded-xl border border-[#d5e7da] bg-[#fbfdf9] flex flex-col gap-3 hover:border-[#012d1d]/30 transition-all"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#e0f2e6] text-[#012d1d]">
+                      {claim.id}
+                    </span>
+                    <span className="text-sm font-bold text-[#012d1d]">{claim.itemTitle}</span>
+                    <span className="text-xs text-[#717973]">({claim.itemReportCode})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {claim.status === 'pending_finder_review' && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#ffdbcf] text-[#a23e18] flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">hourglass_top</span>
+                        <span>Pending Claimant Review</span>
+                      </span>
+                    )}
+                    {claim.status === 'handover_scheduled' && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#e6f8eb] text-[#012d1d] flex items-center gap-1 border border-[#c1ecd4]">
+                        <span className="material-symbols-outlined text-xs">event</span>
+                        <span>Handover Scheduled</span>
+                      </span>
+                    )}
+                    {claim.status === 'returned_confirmed' && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#c1ecd4] text-[#002114] flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">check_circle</span>
+                        <span>Returned &amp; Reunited</span>
+                      </span>
+                    )}
+                    {claim.status === 'rejected' && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#fde8e8] text-[#9b1c1c]">
+                        Claim Declined
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Secret Clue Box */}
+                <div className="p-3 rounded-lg bg-white border border-[#d5e7da] text-xs flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[#414844] font-semibold">
+                    <span>Claimant: <strong>{claim.claimantName}</strong> ({claim.claimantContact})</span>
+                    <span>Submitted: {claim.submittedAt}</span>
+                  </div>
+                  <div className="pt-1 text-[#101f17]">
+                    <span className="font-bold text-[#012d1d]">Confidential Ownership Proof: </span>
+                    <span className="italic">"{claim.secretClueSubmitted}"</span>
+                  </div>
+                  {claim.scheduledLocation && (
+                    <div className="mt-1 pt-1.5 border-t border-[#e0f2e6] text-[#012d1d] flex items-center gap-2 font-medium">
+                      <span className="material-symbols-outlined text-sm text-[#a23e18]">location_on</span>
+                      <span>Scheduled Handover: <strong>{claim.scheduledLocation}</strong> · {claim.scheduledTime}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Finder Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2 justify-end pt-1">
+                  {claim.status === 'pending_finder_review' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleRequestMoreFinderEvidence(claim.id)}
+                        className="px-3 py-1.5 rounded-lg border border-[#d5e7da] bg-white text-[#414844] text-xs font-semibold hover:bg-[#e0f2e6] cursor-pointer"
+                      >
+                        Request More Clues
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeclineClaim(claim.id)}
+                        className="px-3 py-1.5 rounded-lg border border-[#f8b4b4] bg-white text-[#9b1c1c] text-xs font-semibold hover:bg-[#fde8e8] cursor-pointer"
+                      >
+                        Decline Claim
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenHandoverModal(claim)}
+                        className="px-4 py-1.5 rounded-lg bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] shadow-xs cursor-pointer flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-sm">schedule_send</span>
+                        <span>Accept &amp; Coordinate Handover</span>
+                      </button>
+                    </>
+                  )}
+
+                  {claim.status === 'handover_scheduled' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenHandoverModal(claim)}
+                        className="px-3 py-1.5 rounded-lg border border-[#d5e7da] bg-white text-[#414844] text-xs font-semibold hover:bg-[#e0f2e6] cursor-pointer"
+                      >
+                        Adjust Station / Time
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmItemReturned(claim)}
+                        className="px-4 py-1.5 rounded-lg bg-[#1b4332] text-white text-xs font-bold hover:bg-[#012d1d] shadow-xs cursor-pointer flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-sm">verified</span>
+                        <span>Confirm Item Returned to Owner</span>
+                      </button>
+                    </>
+                  )}
+
+                  {claim.status === 'returned_confirmed' && (
+                    <button
+                      type="button"
+                      onClick={() => setReceiptClaim(claim)}
+                      className="px-3 py-1.5 rounded-lg bg-[#e6f8eb] border border-[#c1ecd4] text-[#012d1d] text-xs font-bold hover:bg-[#dbede0] cursor-pointer flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-sm">receipt</span>
+                      <span>View Turnover Receipt</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Main Layout: 8-col Claim & Items Table / 4-col Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -268,7 +544,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
                     <span className="material-symbols-outlined text-sm">check</span>
                   </div>
                   <span className="text-[11px] text-[#012d1d] font-bold mt-1">Submitted</span>
-                  <span className="text-[10px] text-[#414844] leading-none mt-0.5">Oct 14</span>
+                  <span className="text-[10px] text-[#414844] leading-none mt-0.5">Active</span>
                 </div>
 
                 {/* Step 2: Under Review (Active) */}
@@ -286,7 +562,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
                     <span>3</span>
                   </div>
                   <span className="text-[11px] text-[#414844] mt-1 font-semibold">Evidence</span>
-                  <span className="text-[10px] text-[#717973] leading-none mt-0.5">Optional</span>
+                  <span className="text-[10px] text-[#717973] leading-none mt-0.5">Validated</span>
                 </div>
 
                 {/* Step 4: Approved */}
@@ -318,248 +594,194 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
               </div>
             </div>
 
-            {/* Claim Details Highlight Box */}
-            <div className="bg-[#e6f8eb] rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4 border border-[#c1ecd4]">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-[#414844] font-bold uppercase tracking-wider">
-                  Submitted Proof
-                </span>
-                <p className="text-[13px] text-[#101f17] font-medium leading-snug">
-                  {activeClaim.submittedProof}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-[#414844] font-bold uppercase tracking-wider">
-                  Reviewing Staff Custodian
-                </span>
-                <p className="text-[13px] text-[#012d1d] font-bold flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-base">badge</span>
-                  <span>{activeClaim.reviewingOfficer}</span>
-                </p>
-                <span className="text-[11px] text-[#414844]">{activeClaim.officeLocation}</span>
-              </div>
-
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-[#414844] font-bold uppercase tracking-wider">
-                  Estimated Verification
-                </span>
-                <p className="text-[13px] text-[#a23e18] font-bold flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-base">timer</span>
-                  <span>{activeClaim.estimatedVerification}</span>
-                </p>
-                <span className="text-[11px] text-[#414844]">{activeClaim.resolutionDate}</span>
-              </div>
-            </div>
-
-            {/* Claim Action Buttons */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleProvideEvidence}
-                  className="px-3.5 py-2 rounded-lg bg-[#e0f2e6] hover:bg-[#d5e7da] text-[#101f17] text-[12px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#c1ecd4]"
-                >
-                  <span className="material-symbols-outlined text-base">attach_file</span>
-                  <span>Provide Additional Evidence</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleMessageDesk}
-                  className="px-3.5 py-2 rounded-lg bg-[#012d1d] text-white hover:bg-[#1b4332] text-[12px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-base">chat</span>
-                  <span>Message Custody Desk</span>
-                </button>
-              </div>
-
+            {/* Claim Quick Actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#e0f2e6]">
+              <button
+                type="button"
+                onClick={handleProvideEvidence}
+                className="px-3.5 py-1.5 rounded-lg bg-[#e6f8eb] hover:bg-[#dbede0] text-[#012d1d] text-xs font-bold cursor-pointer"
+              >
+                + Provide Additional Clues
+              </button>
+              <button
+                type="button"
+                onClick={handleMessageDesk}
+                className="px-3.5 py-1.5 rounded-lg border border-[#d5e7da] bg-white text-[#414844] text-xs font-semibold hover:bg-[#e0f2e6] cursor-pointer"
+              >
+                Message Custody Officer
+              </button>
               <button
                 type="button"
                 onClick={handleWithdrawClaim}
-                className="px-3 py-2 text-[#414844] hover:text-[#ba1a1a] text-[12px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                className="px-3.5 py-1.5 rounded-lg border border-[#f8b4b4] bg-white text-[#9b1c1c] text-xs font-semibold hover:bg-[#fde8e8] cursor-pointer"
               >
-                <span className="material-symbols-outlined text-base">cancel</span>
-                <span>Withdraw Claim</span>
+                Withdraw Claim
               </button>
             </div>
           </div>
 
-          {/* My Active Lost & Found Reports Section */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+          {/* List of User's Items */}
+          <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-[#d5e7da] flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[#e0f2e6]">
               <div className="flex items-center gap-2.5">
-                <h2 className="text-[18px] text-[#012d1d] font-bold">My Active Lost &amp; Found Reports</h2>
+                <h2 className="text-[18px] text-[#012d1d] font-bold">
+                  {selectedSubTab === 'lost' && 'My Reported Lost Items'}
+                  {selectedSubTab === 'found' && 'Items I Have Found & Logged'}
+                  {selectedSubTab === 'matches' && 'Items with Active Matches'}
+                  {selectedSubTab === 'reunited' && 'Reunited & Resolved Belongings'}
+                  {selectedSubTab === 'all' && 'All My Registered Items'}
+                </h2>
                 <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#dbede0] text-[#101f17] font-bold">
-                  {userItems.length} Total
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[#414844] text-[12px]">
-                <span>Sort by:</span>
-                <span className="font-bold text-[#012d1d] cursor-pointer inline-flex items-center">
-                  Most Recent
-                  <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+                  {displayedItems.length}
                 </span>
               </div>
             </div>
 
-            {/* List of Items */}
-            <div className="flex flex-col gap-3">
-              {userItems.map((item) => {
-                const hasMatch = item.status === 'under_review' || Boolean(item.matchScore);
-                const isReunited = item.status === 'reunited';
+            {displayedItems.length === 0 ? (
+              <div className="p-8 text-center bg-[#fbfdf9] rounded-xl border border-dashed border-[#d5e7da] flex flex-col items-center">
+                <span className="material-symbols-outlined text-4xl text-[#717973] mb-2">inbox</span>
+                <p className="text-sm font-bold text-[#101f17]">No records in this category</p>
+                <p className="text-xs text-[#717973] mt-0.5">Switch sub-tabs or log a new report above.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {displayedItems.map((item) => {
+                  const hasMatch = item.status === 'under_review' || Boolean(item.matchScore);
+                  const isReunited = item.status === 'reunited';
 
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-white rounded-xl p-4 shadow-xs hover:shadow-md border border-[#d5e7da] transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                  >
-                    <div className="flex items-start gap-4 min-w-0">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="w-20 h-20 rounded-lg object-cover shrink-0 bg-[#e0f2e6] border border-[#d5e7da]"
-                      />
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {hasMatch && !isReunited && (
-                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#ffdbcf] text-[#a23e18] font-bold flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">search_check</span>
-                              <span>1 Match Found (86%)</span>
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-xl p-4 shadow-xs hover:shadow-md border border-[#d5e7da] transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                    >
+                      <div className="flex items-start gap-4 min-w-0">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="w-20 h-20 rounded-lg object-cover shrink-0 bg-[#e0f2e6] border border-[#d5e7da]"
+                        />
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {hasMatch && !isReunited && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#ffdbcf] text-[#a23e18] font-bold flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs">search_check</span>
+                                <span>{item.matchScore ? `1 Match Found (${item.matchScore}%)` : 'Match Detected'}</span>
+                              </span>
+                            )}
+                            {!hasMatch && !isReunited && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#e0f2e6] text-[#012d1d] font-semibold flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs">radar</span>
+                                <span>Active Searching</span>
+                              </span>
+                            )}
+                            {isReunited && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#c1ecd4] text-[#002114] font-bold flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs">task_alt</span>
+                                <span>Reunited / Handed Over</span>
+                              </span>
+                            )}
+                            <span className="text-[11px] text-[#414844]">
+                              {item.type === 'lost' ? 'Lost' : 'Found'} {item.dateLostOrFound}
                             </span>
-                          )}
-                          {!hasMatch && !isReunited && (
-                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#e0f2e6] text-[#012d1d] font-semibold flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">radar</span>
-                              <span>Active Searching</span>
-                            </span>
-                          )}
-                          {isReunited && (
-                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#c1ecd4] text-[#002114] font-bold flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">task_alt</span>
-                              <span>Handed Over to Staff (Resolved)</span>
-                            </span>
-                          )}
-                          <span className="text-[11px] text-[#414844]">
-                            {item.type === 'lost' ? 'Lost' : 'Found'} {item.dateLostOrFound}
-                          </span>
-                        </div>
+                          </div>
 
-                        <h3 className="text-[16px] text-[#012d1d] font-bold truncate">
-                          {item.title}
-                        </h3>
+                          <h3 className="text-[16px] text-[#012d1d] font-bold truncate">
+                            {item.title}
+                          </h3>
 
-                        <div className="flex items-center gap-2 text-[#414844] text-[13px]">
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-base text-[#012d1d]">location_on</span>
-                            <span>{item.locationName}</span>
-                          </span>
-                          <span>·</span>
-                          <span className="font-mono text-[11px]">{item.reportCode}</span>
+                          <div className="flex items-center gap-2 text-[#414844] text-[13px]">
+                            <span className="flex items-center gap-1">
+                              <span className="material-symbols-outlined text-base text-[#012d1d]">location_on</span>
+                              <span>{item.locationName}</span>
+                            </span>
+                            <span>·</span>
+                            <span className="font-mono text-[11px]">{item.reportCode}</span>
+                          </div>
                         </div>
                       </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                        {hasMatch && !isReunited && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToMatch(item.matchCaseId)}
+                            className="px-3.5 py-2 rounded-lg bg-[#a23e18] text-white hover:bg-[#822801] text-[12px] font-bold transition-colors cursor-pointer"
+                          >
+                            View Match
+                          </button>
+                        )}
+
+                        {!hasMatch && !isReunited && (
+                          <button
+                            type="button"
+                            onClick={() => showToast(`Search extended for ${item.title} across campus network.`)}
+                            className="px-3.5 py-2 rounded-lg bg-[#e0f2e6] hover:bg-[#dbede0] text-[#101f17] text-[12px] font-semibold transition-colors cursor-pointer"
+                          >
+                            Extend Search
+                          </button>
+                        )}
+
+                        {isReunited && (
+                          <button
+                            type="button"
+                            onClick={() => alert(`Official turnover receipt for ${item.title} logged in system records.`)}
+                            className="px-3.5 py-2 rounded-lg bg-[#e6f8eb] hover:bg-[#dbede0] text-[#012d1d] text-[12px] font-bold flex items-center gap-1 transition-colors cursor-pointer border border-[#c1ecd4]"
+                          >
+                            <span className="material-symbols-outlined text-base">receipt_long</span>
+                            <span>Turnover Receipt</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                      {hasMatch && !isReunited && (
-                        <button
-                          type="button"
-                          onClick={() => onNavigateToMatch(item.matchCaseId)}
-                          className="px-3.5 py-2 rounded-lg bg-[#a23e18] text-white hover:bg-[#822801] text-[12px] font-bold transition-colors cursor-pointer"
-                        >
-                          View Match
-                        </button>
-                      )}
-
-                      {!hasMatch && !isReunited && (
-                        <button
-                          type="button"
-                          onClick={() => showToast(`Search extended for ${item.title} across campus network.`)}
-                          className="px-3.5 py-2 rounded-lg bg-[#e0f2e6] hover:bg-[#d5e7da] text-[#101f17] text-[12px] font-semibold transition-colors cursor-pointer"
-                        >
-                          Extend Search
-                        </button>
-                      )}
-
-                      {isReunited && (
-                        <button
-                          type="button"
-                          onClick={() => alert(`Official turnover receipt #TR-3419 logged at Caldwell Arts Hall. Student ID verified.`)}
-                          className="px-3.5 py-2 rounded-lg bg-[#e6f8eb] hover:bg-[#dbede0] text-[#012d1d] text-[12px] font-bold flex items-center gap-1 transition-colors cursor-pointer border border-[#c1ecd4]"
-                        >
-                          <span className="material-symbols-outlined text-base">receipt_long</span>
-                          <span>Turnover Receipt</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => alert(`Edit report for ${item.title}`)}
-                        className="p-2 rounded-lg bg-[#e0f2e6] hover:bg-[#d5e7da] text-[#101f17] transition-colors cursor-pointer"
-                        title="Edit Details"
-                      >
-                        <span className="material-symbols-outlined text-base">edit</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => showToast(`Marked ${item.title} as resolved.`)}
-                        className="p-2 rounded-lg bg-[#e0f2e6] hover:bg-[#d5e7da] text-[#101f17] transition-colors cursor-pointer"
-                        title="Mark as Found Elsewhere"
-                      >
-                        <span className="material-symbols-outlined text-base">check_circle</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Column: Handover Stations & Resolution Rate (4 cols) */}
+        {/* Right Column: Handover Stations & Guidelines (4 cols) */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           {/* Handover Stations Card */}
           <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-[#d5e7da] flex flex-col gap-4">
             <div className="flex items-center justify-between pb-1 border-b border-[#e0f2e6]">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#012d1d] text-xl">store</span>
-                <h3 className="text-[17px] text-[#012d1d] font-bold">Handover Stations</h3>
+                <h3 className="text-[17px] text-[#012d1d] font-bold">Authorized Handover Desks</h3>
               </div>
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#c1ecd4] text-[#002114] font-bold">
-                Authorized
+                Verified
               </span>
             </div>
 
             <p className="text-[13px] text-[#414844]">
-              Official safe handover desks verified by Caldwell University Safety Officers.
+              Official safe handover desks verified for student-finder returns.
             </p>
 
             <div className="flex flex-col gap-3">
-              {/* Station 1 */}
               <div className="p-3 rounded-lg bg-[#e6f8eb] flex flex-col gap-1 border border-[#c1ecd4]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#101f17] font-bold">1. Student Union Info Hub</span>
+                  <span className="text-[13px] text-[#101f17] font-bold">1. Central University Library</span>
                   <span className="text-[11px] text-[#a23e18] font-bold">Desk 1</span>
                 </div>
                 <div className="flex items-center gap-1 text-[#414844] text-[12px]">
                   <span className="material-symbols-outlined text-sm">schedule</span>
-                  <span>Open Daily: 8:00 AM – 8:00 PM</span>
+                  <span>Daily: 8:00 AM – 8:00 PM</span>
                 </div>
-                <span className="text-[11px] text-[#717973]">Building Level 1, Main Atrium Entrance</span>
+                <span className="text-[11px] text-[#717973]">Ground Floor Circulation Counter</span>
               </div>
 
-              {/* Station 2 */}
               <div className="p-3 rounded-lg bg-[#e6f8eb] flex flex-col gap-1 border border-[#c1ecd4]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#101f17] font-bold">2. Main Library Circulation Desk</span>
-                  <span className="text-[11px] text-[#012d1d] font-bold">East Wing</span>
+                  <span className="text-[13px] text-[#101f17] font-bold">2. Main Admin &amp; Security Desk</span>
+                  <span className="text-[11px] text-[#012d1d] font-bold">Main Gate</span>
                 </div>
                 <div className="flex items-center gap-1 text-[#414844] text-[12px]">
                   <span className="material-symbols-outlined text-sm">schedule</span>
-                  <span>Open Mon–Sun: 8:00 AM – 10:00 PM</span>
+                  <span>24/7 Campus Security Post</span>
                 </div>
-                <span className="text-[11px] text-[#717973]">North Quad Wing, Turnstile Security Booth</span>
+                <span className="text-[11px] text-[#717973]">SAGE University Bhopal Main Entrance</span>
               </div>
             </div>
 
@@ -567,97 +789,169 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
             <div className="p-3 rounded-lg bg-[#e0f2e6] flex items-start gap-2.5 border border-[#c1ecd4]">
               <span className="material-symbols-outlined text-[#012d1d] text-base shrink-0 mt-0.5">verified_user</span>
               <div className="flex flex-col">
-                <span className="text-[12px] text-[#012d1d] font-bold">Safety First Policy</span>
+                <span className="text-[12px] text-[#012d1d] font-bold">Campus Safety Policy</span>
                 <p className="text-[11px] text-[#414844] leading-relaxed">
-                  Campus regulations require all personal item transfers to be confirmed in person with an official Caldwell University student or staff ID badge.
+                  Campus regulations recommend handovers take place at authorized security desks or library counters with student ID validation.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Claim Activity Analytics Widget */}
-          <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-[#d5e7da] flex flex-col gap-4">
-            <div className="flex items-center justify-between pb-1 border-b border-[#e0f2e6]">
-              <h3 className="text-[17px] text-[#012d1d] font-bold">My Resolution Rate</h3>
-              <span className="text-[11px] text-[#414844]">Semester 2024</span>
-            </div>
-
-            {/* Inline Visual Ring & Stats */}
-            <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-[#e0f2e6]"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                  />
-                  <path
-                    className="text-[#012d1d]"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeDasharray="75, 100"
-                    strokeLinecap="round"
-                    strokeWidth="3.5"
-                  />
-                </svg>
-                <div className="absolute flex flex-col items-center">
-                  <span className="text-[18px] text-[#012d1d] font-bold leading-none tabular-nums">75%</span>
-                  <span className="text-[9px] text-[#414844] uppercase font-bold">Success</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-[#414844]">Items Handed Over</span>
-                  <span className="font-bold text-[#012d1d]">1 item</span>
-                </div>
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-[#414844]">Claims Underway</span>
-                  <span className="font-bold text-[#a23e18]">1 item</span>
-                </div>
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-[#414844]">Average Claim Return</span>
-                  <span className="font-bold text-[#012d1d]">3.2 days</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-[#e0f2e6] flex justify-between items-center text-[#414844] text-[12px]">
-              <span>FindSync Campus Score: <strong>Gold Steward</strong></span>
-              <span className="material-symbols-outlined text-[#a23e18] text-base">stars</span>
-            </div>
-          </div>
-
-          {/* Need Help With a Claim Card */}
+          {/* Need Help Card */}
           <div className="rounded-xl bg-[#012d1d] text-white p-5 sm:p-6 flex flex-col gap-3 shadow-md border border-[#1b4332]">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[#c1ecd4]">contact_support</span>
               <span className="text-[17px] font-bold">Need Help With a Claim?</span>
             </div>
             <p className="text-[13px] text-white/80 leading-relaxed">
-              Having trouble confirming ownership or need an expedited release for academic gear? Campus security officers are available to assist.
+              Having trouble coordinating handover or need an escort? Campus security officers are available to assist.
             </p>
             <div className="pt-2 flex flex-col gap-2">
-              <a
-                href="tel:5550199201"
-                className="w-full py-2.5 px-3 rounded-lg bg-white text-[#012d1d] text-[12px] font-bold text-center hover:bg-[#e0f2e6] transition-colors"
-              >
-                Call Security Dispatch: (555) 019-9201
-              </a>
               <button
                 type="button"
                 onClick={onOpenCampusDesk}
-                className="w-full py-2.5 px-3 rounded-lg bg-[#1b4332] text-white text-[12px] font-bold text-center hover:bg-[#002114] transition-colors cursor-pointer border border-[#c1ecd4]/20"
+                className="w-full py-2.5 px-3 rounded-lg bg-white text-[#012d1d] text-[12px] font-bold text-center hover:bg-[#e0f2e6] transition-colors cursor-pointer"
               >
-                Open Campus Safety Live Chat
+                View Campus Desk Directory
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* HANDOVER COORDINATION MODAL */}
+      {handoverModalClaim && (
+        <div className="fixed inset-0 z-50 bg-[#012d1d]/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#d5e7da] animate-in fade-in zoom-in-95 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#e0f2e6]">
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-[#e6f8eb] text-[#012d1d] flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-xl">handshake</span>
+                </span>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#a23e18]">
+                    Finder Handover Hub
+                  </span>
+                  <h3 className="text-[18px] font-bold text-[#012d1d]">
+                    Coordinate Safe Handover
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHandoverModalClaim(null)}
+                className="p-1.5 rounded-lg text-[#717973] hover:text-[#101f17] hover:bg-[#e0f2e6] cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveHandoverCoordination} className="flex flex-col gap-4">
+              <div className="p-3 bg-[#fbfdf9] rounded-xl border border-[#d5e7da] text-xs">
+                <span className="font-bold text-[#012d1d]">Claim Details:</span> {handoverModalClaim.itemTitle} ({handoverModalClaim.itemReportCode}) claimed by <strong>{handoverModalClaim.claimantName}</strong>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-semibold text-[#101f17]">
+                  Authorized Handover Meeting Point
+                </label>
+                <select
+                  value={handoverStation}
+                  onChange={(e) => setHandoverStation(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-[#d5e7da] bg-white text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
+                >
+                  <option value="SAGE University Bhopal - Admin & Campus Security Desk">
+                    SAGE University Bhopal - Admin &amp; Campus Security Desk
+                  </option>
+                  <option value="Central University Library - Circulation Counter">
+                    Central University Library - Circulation Counter (Level 1)
+                  </option>
+                  <option value="Student Canteen / Cafeteria Information Desk">
+                    Student Canteen / Cafeteria Information Desk
+                  </option>
+                  <option value="Engineering & Technology Block Entrance Foyer">
+                    Engineering &amp; Technology Block Entrance Foyer
+                  </option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-semibold text-[#101f17]">
+                  Scheduled Date &amp; Time Window
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={handoverTimeSlot}
+                  onChange={(e) => setHandoverTimeSlot(e.target.value)}
+                  placeholder="e.g. Tomorrow, 11:30 AM – 1:00 PM"
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#d5e7da] bg-white text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-semibold text-[#101f17]">
+                  Safety &amp; Verification Instructions for Claimant
+                </label>
+                <textarea
+                  rows={2}
+                  value={handoverSafetyNotes}
+                  onChange={(e) => setHandoverSafetyNotes(e.target.value)}
+                  placeholder="e.g., Please bring your student ID card or purchase receipt."
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#d5e7da] bg-white text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#e0f2e6]">
+                <button
+                  type="button"
+                  onClick={() => setHandoverModalClaim(null)}
+                  className="px-4 py-2 rounded-xl border border-[#d5e7da] text-[#414844] text-xs font-semibold hover:bg-[#e0f2e6] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-base">check</span>
+                  <span>Confirm Handover Schedule</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TURNOVER RECEIPT CONFIRMATION MODAL */}
+      {receiptClaim && (
+        <div className="fixed inset-0 z-50 bg-[#012d1d]/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#d5e7da] animate-in fade-in zoom-in-95 flex flex-col gap-4 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#def7ec] text-[#03543f] flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-3xl">task_alt</span>
+            </div>
+            <h3 className="text-xl font-bold text-[#012d1d]">Item Reunited Successfully!</h3>
+            <p className="text-xs text-[#414844] leading-relaxed">
+              Official campus turnover record completed for <strong>{receiptClaim.itemTitle}</strong>. Thank you for being a responsible member of our campus community!
+            </p>
+
+            <div className="p-3 bg-[#fbfdf9] rounded-xl border border-[#d5e7da] text-left text-xs space-y-1 font-mono">
+              <div><span className="text-[#717973]">Receipt Code:</span> #REC-{Math.floor(10000 + Math.random() * 90000)}</div>
+              <div><span className="text-[#717973]">Recipient:</span> {receiptClaim.claimantName}</div>
+              <div><span className="text-[#717973]">Handover Station:</span> {receiptClaim.scheduledLocation || 'SAGE University Security Desk'}</div>
+              <div><span className="text-[#717973]">Timestamp:</span> {new Date().toLocaleString()}</div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setReceiptClaim(null)}
+              className="mt-2 w-full py-2.5 rounded-xl bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] cursor-pointer"
+            >
+              Done &amp; Close Receipt
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

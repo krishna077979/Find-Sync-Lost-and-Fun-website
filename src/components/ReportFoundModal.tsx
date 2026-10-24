@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Item, ItemCategory, CampusId, FacilitySector } from '../types';
+import { Item, ItemCategory, CampusId, FacilitySector, ItemLocationCoordinates } from '../types';
 import { CameraCaptureWidget } from './CameraCaptureWidget';
 import { CampusMapPicker } from './CampusMapPicker';
+import {
+  getCampusConfigurations,
+  getCampusById,
+  CAMPUS_AREA_CATEGORIES,
+  CampusAreaCategory,
+} from '../data/campusConfig';
 
 interface ReportFoundModalProps {
   isOpen: boolean;
@@ -16,13 +22,27 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
   onItemFoundCreated,
   items = [],
 }) => {
+  const allCampuses = getCampusConfigurations();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ItemCategory>('Electronics');
-  const [campusId, setCampusId] = useState<CampusId>('main-campus');
-  const [facilitySector, setFacilitySector] = useState<FacilitySector>('academic');
-  const [locationName, setLocationName] = useState('Caldwell Main Library');
+  const [campusId, setCampusId] = useState<CampusId>('sage-bhopal');
+  const currentCampusConfig = getCampusById(campusId);
+
+  const [locationCategory, setLocationCategory] = useState<CampusAreaCategory | 'all'>('canteen');
+  const [facilitySector, setFacilitySector] = useState<FacilitySector>('student_life');
+  const [locationName, setLocationName] = useState('Main Campus Food Court & Canteen');
+  const [isOtherLocation, setIsOtherLocation] = useState(false);
+  const [otherLocationDescription, setOtherLocationDescription] = useState('');
   const [shuttleLine, setShuttleLine] = useState('');
-  const [roomZone, setRoomZone] = useState('2nd Floor Study Booth');
+  const [roomZone, setRoomZone] = useState('Dining counter near Lost & Found desk #2');
+  const [locationCoordinates, setLocationCoordinates] = useState<ItemLocationCoordinates | null>({
+    lat: 23.1784,
+    lng: 77.4923,
+    formatted: '23.1784° N, 77.4923° E',
+  });
+  const [pinCoordinates, setPinCoordinates] = useState<string | null>(
+    'Pin: Main Campus Food Court & Canteen (CANTEEN-MAIN) · 23.1784° N, 77.4923° E'
+  );
   const [colorway, setColorway] = useState('Matte Black');
   const [description, setDescription] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(
@@ -119,10 +139,15 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
       alert('Please specify an item name.');
       return;
     }
+    if (isOtherLocation && !otherLocationDescription.trim()) {
+      alert('Please enter a description for the custom campus location.');
+      return;
+    }
 
     setIsSubmitting(true);
 
     setTimeout(() => {
+      const resolvedLocation = isOtherLocation ? otherLocationDescription : locationName;
       const newItem: Item = {
         id: `found-${Date.now()}`,
         reportCode: `#F-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -132,10 +157,16 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
         colorway,
         description: description || 'Property turned in at custody desk. Safe lockup active.',
         campusId,
+        campusName: currentCampusConfig.name,
+        buildingArea: resolvedLocation,
+        locationCategory: isOtherLocation ? 'other' : locationCategory,
+        isOtherLocation,
+        otherLocationDescription: isOtherLocation ? otherLocationDescription : undefined,
+        locationCoordinates: locationCoordinates || undefined,
         facilitySector,
         shuttleLine: facilitySector === 'transit' ? shuttleLine : undefined,
-        locationName,
-        roomZone,
+        locationName: resolvedLocation,
+        roomZone: pinCoordinates ? `${roomZone} (${pinCoordinates})` : roomZone,
         dateLostOrFound: 'Oct 14, 2024',
         timeString: 'Just now',
         status: 'in_custody',
@@ -286,42 +317,78 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
             />
           </div>
 
-          {/* Campus and Facility Sector */}
+          {/* Campus and Location Category */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-[13px] font-semibold text-[#101f17]">Campus Location</label>
+              <label className="text-[13px] font-semibold text-[#101f17] flex items-center justify-between">
+                <span>Campus Location <span className="text-[#a23e18]">*</span></span>
+                <span className="text-[11px] text-[#012d1d] font-bold bg-[#e6f8eb] px-2 py-0.5 rounded-md">
+                  {currentCampusConfig.shortCode}
+                </span>
+              </label>
               <select
                 value={campusId}
-                onChange={(e) => setCampusId(e.target.value as CampusId)}
-                className="w-full px-3 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[13px]"
+                onChange={(e) => {
+                  const newId = e.target.value as CampusId;
+                  setCampusId(newId);
+                  const cfg = getCampusById(newId);
+                  if (cfg.areas && cfg.areas.length > 0) {
+                    setLocationName(cfg.areas[0].name);
+                    setLocationCategory(cfg.areas[0].category);
+                    setIsOtherLocation(false);
+                    const coordStr = `${cfg.areas[0].lat.toFixed(4)}° N, ${cfg.areas[0].lng.toFixed(4)}° E`;
+                    setLocationCoordinates({
+                      lat: cfg.areas[0].lat,
+                      lng: cfg.areas[0].lng,
+                      formatted: coordStr,
+                    });
+                    setPinCoordinates(`Pin: ${cfg.areas[0].name} (${cfg.areas[0].code}) · ${coordStr}`);
+                  }
+                }}
+                className="w-full px-3 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d] cursor-pointer"
               >
-                <option value="main-campus">Main Campus (Central Quad District)</option>
-                <option value="downtown-medical">Downtown Health Sciences &amp; Medical</option>
-                <option value="north-research">North Campus &amp; Tech Innovation Park</option>
+                {allCampuses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.shortCode})
+                  </option>
+                ))}
               </select>
             </div>
+
             <div className="flex flex-col gap-1">
-              <label className="text-[13px] font-semibold text-[#101f17]">Sector</label>
+              <label className="text-[13px] font-semibold text-[#101f17]">Location Category</label>
               <select
-                value={facilitySector}
+                value={locationCategory}
                 onChange={(e) => {
-                  const sec = e.target.value as FacilitySector;
-                  setFacilitySector(sec);
-                  if (sec === 'academic') setLocationName('Caldwell Main Library');
-                  else if (sec === 'residence') setLocationName('South Tower Residence Hall');
-                  else if (sec === 'transit') {
-                    setLocationName('Campus Transit Shuttle Bus');
-                    setShuttleLine('Blue Line Shuttle #12');
-                  } else if (sec === 'athletics') setLocationName('Caldwell Sports Arena & Gym');
-                  else if (sec === 'student_life') setLocationName('Caldwell Student Union Desk');
+                  const cat = e.target.value as CampusAreaCategory | 'all';
+                  setLocationCategory(cat);
+                  if (cat === 'other') {
+                    setIsOtherLocation(true);
+                  } else {
+                    setIsOtherLocation(false);
+                    const matching = cat === 'all'
+                      ? currentCampusConfig.areas
+                      : currentCampusConfig.areas.filter((a) => a.category === cat);
+                    if (matching.length > 0) {
+                      setLocationName(matching[0].name);
+                      const coordStr = `${matching[0].lat.toFixed(4)}° N, ${matching[0].lng.toFixed(4)}° E`;
+                      setLocationCoordinates({
+                        lat: matching[0].lat,
+                        lng: matching[0].lng,
+                        formatted: coordStr,
+                      });
+                      setPinCoordinates(`Pin: ${matching[0].name} (${matching[0].code}) · ${coordStr}`);
+                    }
+                  }
                 }}
-                className="w-full px-3 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[13px]"
+                className="w-full px-3 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d] cursor-pointer"
               >
-                <option value="academic">Academic Buildings &amp; Libraries</option>
-                <option value="residence">Residence Halls &amp; Dormitories</option>
-                <option value="transit">Campus Transit &amp; Shuttles</option>
-                <option value="athletics">Athletic Arenas &amp; Gyms</option>
-                <option value="student_life">Student Union &amp; Dining</option>
+                <option value="all">All Categories</option>
+                {CAMPUS_AREA_CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -329,7 +396,9 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <label className="text-[13px] font-semibold text-[#101f17]">Building / Zone</label>
+                <label className="text-[13px] font-semibold text-[#101f17]">
+                  Building / Campus Area <span className="text-[#a23e18]">*</span>
+                </label>
                 <button
                   type="button"
                   onClick={() => setShowMapPicker(!showMapPicker)}
@@ -339,34 +408,90 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
                   <span>{showMapPicker ? 'Hide Pin Map' : 'Drop Map Pin'}</span>
                 </button>
               </div>
-              <input
-                type="text"
-                required
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                placeholder="e.g., Birch Hall, Blue Line Shuttle #12, Sports Arena..."
-                className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px]"
-              />
+              <select
+                value={isOtherLocation ? '__other__' : locationName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '__other__') {
+                    setIsOtherLocation(true);
+                  } else {
+                    setIsOtherLocation(false);
+                    setLocationName(val);
+                    const matched = currentCampusConfig.areas.find((a) => a.name === val);
+                    if (matched) {
+                      const coordStr = `${matched.lat.toFixed(4)}° N, ${matched.lng.toFixed(4)}° E`;
+                      setLocationCoordinates({
+                        lat: matched.lat,
+                        lng: matched.lng,
+                        formatted: coordStr,
+                      });
+                      setPinCoordinates(`Pin: ${matched.name} (${matched.code}) · ${coordStr}`);
+                      setLocationCategory(matched.category);
+                    }
+                  }
+                }}
+                className="w-full px-3 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d] cursor-pointer"
+              >
+                {(locationCategory === 'all'
+                  ? currentCampusConfig.areas
+                  : currentCampusConfig.areas.filter((a) => a.category === locationCategory)
+                ).map((a) => (
+                  <option key={a.id} value={a.name}>
+                    {a.name} ({a.code})
+                  </option>
+                ))}
+                <option value="__other__">Other (Enter custom campus location)</option>
+              </select>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[13px] font-semibold text-[#101f17]">Room / Seat / Locker</label>
-              <input
-                type="text"
-                value={roomZone}
-                onChange={(e) => setRoomZone(e.target.value)}
-                placeholder="e.g., 2nd Floor Study Booth, Rear seat, Room 204..."
-                className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px]"
-              />
-            </div>
+
+            {isOtherLocation ? (
+              <div className="flex flex-col gap-1 animate-in fade-in">
+                <label className="text-[13px] font-semibold text-[#101f17]" htmlFor="found-other-loc">
+                  Custom Location Description <span className="text-[#a23e18]">*</span>
+                </label>
+                <input
+                  id="found-other-loc"
+                  type="text"
+                  required
+                  value={otherLocationDescription}
+                  onChange={(e) => setOtherLocationDescription(e.target.value)}
+                  placeholder="e.g., Near fountain in Central Quad, behind canteen lawn..."
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-[#a23e18] text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#a23e18]"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px] font-semibold text-[#101f17]">Room / Seat / Locker</label>
+                <input
+                  type="text"
+                  value={roomZone}
+                  onChange={(e) => setRoomZone(e.target.value)}
+                  placeholder="e.g., 2nd Floor Study Booth, Rear seat, Room 204..."
+                  className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px]"
+                />
+              </div>
+            )}
           </div>
 
           {/* Interactive Map Pin Accordion */}
           {showMapPicker && (
-            <div className="p-3 bg-[#e6f8eb]/60 rounded-xl border border-[#c1ecd4]">
+            <div className="p-3 bg-[#e6f8eb]/60 rounded-xl border border-[#c1ecd4] animate-in fade-in">
               <CampusMapPicker
                 campusId={campusId}
-                selectedLocationName={locationName}
-                onSelectLocation={(name) => setLocationName(name)}
+                selectedLocationName={isOtherLocation ? otherLocationDescription : locationName}
+                onSelectLocation={(name, pinCoord, coordsObj, areaObj) => {
+                  if (areaObj) {
+                    setLocationName(name);
+                    setIsOtherLocation(false);
+                    setLocationCategory(areaObj.category);
+                  } else {
+                    if (!isOtherLocation) {
+                      setLocationName(name);
+                    }
+                  }
+                  if (pinCoord) setPinCoordinates(pinCoord);
+                  if (coordsObj) setLocationCoordinates(coordsObj);
+                }}
               />
             </div>
           )}

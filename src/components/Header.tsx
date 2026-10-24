@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ViewTab, CampusId } from '../types';
+import { UserProfile, ViewTab, CampusId } from '../types';
 import { CAMPUS_SITES } from '../data/mockData';
+import { getCampusConfigurations } from '../data/campusConfig';
 
 interface HeaderProps {
   activeTab: ViewTab;
@@ -16,6 +17,8 @@ interface HeaderProps {
   unreadNotifications?: number;
   userRole: 'student' | 'staff';
   onToggleRole: () => void;
+  currentUser?: UserProfile | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,23 +35,31 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotifications = 2,
   userRole,
   onToggleRole,
+  currentUser,
+  onLogout,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCampusMenu, setShowCampusMenu] = useState(false);
 
-  const currentCampus = CAMPUS_SITES.find((c) => c.id === selectedCampus) || CAMPUS_SITES[0];
+  const campusConfigs = getCampusConfigurations();
+  const currentCampus = campusConfigs.find((c) => c.id === selectedCampus) || campusConfigs[0] || CAMPUS_SITES[0];
 
-  const navItems: { id: ViewTab; label: string; badge?: string; isStaff?: boolean; action?: () => void }[] = [
+  const baseNavItems: { id: ViewTab; label: string; badge?: string; isStaff?: boolean; action?: () => void }[] = [
     { id: 'home', label: 'Home' },
     { id: 'explore', label: 'Explore & Search' },
     { id: 'potential-matches', label: 'Potential Matches', badge: matchesCount > 0 ? `${matchesCount} New` : undefined },
     { id: 'report-lost', label: 'Report Lost' },
     { id: 'report-found', label: 'Report Found', action: onOpenReportFound },
-    { id: 'my-items', label: 'My Items' },
-    { id: 'admin-portal', label: 'Admin Portal', isStaff: true },
+    { id: 'my-items', label: 'My Items & Claims' },
   ];
+
+  if (userRole === 'staff') {
+    baseNavItems.push({ id: 'admin-portal', label: 'Admin Portal', isStaff: true });
+  }
+
+  const navItems = baseNavItems;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#ffffff] shadow-[0_1px_8px_rgba(27,42,34,0.05)] border-b border-[#e0f2e6]">
@@ -111,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   <div className="py-1 flex flex-col gap-1">
-                    {CAMPUS_SITES.map((site) => {
+                    {campusConfigs.map((site) => {
                       const isSelected = selectedCampus === site.id;
                       return (
                         <button
@@ -130,14 +141,14 @@ export const Header: React.FC<HeaderProps> = ({
                           <div className="flex flex-col min-w-0 pr-2">
                             <span className="text-[13px] font-bold leading-tight truncate">{site.name}</span>
                             <span className={`text-[11px] truncate mt-0.5 ${isSelected ? 'text-[#c1ecd4]' : 'text-[#717973]'}`}>
-                              {site.tagline}
+                              {site.address || site.tagline}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                               isSelected ? 'bg-white/20 text-white' : 'bg-[#e0f2e6] text-[#012d1d]'
                             }`}>
-                              {site.desksCount} desks
+                              {site.areas.length} areas
                             </span>
                             {isSelected && (
                               <span className="material-symbols-outlined text-base text-[#c1ecd4]">check</span>
@@ -299,10 +310,10 @@ export const Header: React.FC<HeaderProps> = ({
               />
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-[13px] text-[#101f17] leading-tight font-bold">
-                  {userRole === 'student' ? 'Maya Lin' : 'Officer Ramirez'}
+                  {currentUser?.name || (userRole === 'student' ? 'Maya Lin' : 'Officer Ramirez')}
                 </span>
                 <span className="text-[11px] text-[#414844] leading-none">
-                  {userRole === 'student' ? 'Student · Caldwell Univ' : 'Campus Safety Officer #ST-44'}
+                  {userRole === 'student' ? 'Student / Finder' : 'Campus Safety Officer'}
                 </span>
               </div>
               <span className="material-symbols-outlined text-[#414844] text-base">expand_more</span>
@@ -310,12 +321,15 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Profile Menu */}
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-[#d5e7da] p-2 z-50 animate-in fade-in">
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-[#d5e7da] p-2 z-50 animate-in fade-in">
                 <div className="p-2 border-b border-[#e0f2e6]">
                   <p className="text-[11px] text-[#414844] font-medium">Signed in as</p>
-                  <p className="text-[13px] font-bold text-[#012d1d]">
-                    {userRole === 'student' ? 'm.lin@caldwell.edu' : 'r.ramirez@caldwell.edu'}
+                  <p className="text-[13px] font-bold text-[#012d1d] truncate">
+                    {currentUser?.email || (userRole === 'student' ? 'm.lin@gmail.com' : 'officer.ramirez@bhopal.edu')}
                   </p>
+                  <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#e6f8eb] text-[#012d1d]">
+                    {userRole === 'staff' ? 'Campus Safety Admin' : 'Student / Finder Member'}
+                  </span>
                 </div>
                 <div className="py-1">
                   <button
@@ -324,10 +338,10 @@ export const Header: React.FC<HeaderProps> = ({
                       if (onOpenAuthModal) onOpenAuthModal();
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-[#012d1d] hover:bg-[#e0f2e6] flex items-center gap-2"
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-[#012d1d] hover:bg-[#e0f2e6] flex items-center gap-2 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">manage_accounts</span>
-                    <span>Account Settings &amp; Login (SSO)</span>
+                    <span>Account Profile</span>
                   </button>
                   <button
                     type="button"
@@ -335,9 +349,9 @@ export const Header: React.FC<HeaderProps> = ({
                       onToggleRole();
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-[#a23e18] hover:bg-[#ffdbcf]/50 flex items-center justify-between"
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-[#a23e18] hover:bg-[#ffdbcf]/50 flex items-center justify-between cursor-pointer"
                   >
-                    <span>Switch Mode:</span>
+                    <span>Switch Role View:</span>
                     <span className="font-bold underline">{userRole === 'student' ? 'Officer View' : 'Student View'}</span>
                   </button>
                   <button
@@ -346,22 +360,39 @@ export const Header: React.FC<HeaderProps> = ({
                       onSelectTab('my-items');
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-[#101f17] hover:bg-[#e0f2e6] flex items-center gap-2"
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-[#101f17] hover:bg-[#e0f2e6] flex items-center gap-2 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">inventory_2</span>
                     <span>My Reports &amp; Claims</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSelectTab('admin-portal');
-                      setShowProfileMenu(false);
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-[#101f17] hover:bg-[#e0f2e6] flex items-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-sm">shield</span>
-                    <span>Admin Custody Desk</span>
-                  </button>
+                  {userRole === 'staff' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectTab('admin-portal');
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-[#101f17] hover:bg-[#e0f2e6] flex items-center gap-2 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">shield</span>
+                      <span>Admin Portal</span>
+                    </button>
+                  )}
+                  {onLogout && (
+                    <div className="pt-1 mt-1 border-t border-[#e0f2e6]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          onLogout();
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-bold text-[#a23e18] hover:bg-[#fde8e8] flex items-center gap-2 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">logout</span>
+                        <span>Sign Out / Log Out</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -421,11 +452,24 @@ export const Header: React.FC<HeaderProps> = ({
                 onOpenCampusDesk();
                 setMobileMenuOpen(false);
               }}
-              className="w-full py-2 px-3 rounded-lg bg-[#e6f8eb] text-[#101f17] text-[13px] font-semibold flex items-center justify-center gap-1.5"
+              className="w-full py-2 px-3 rounded-lg bg-[#e6f8eb] text-[#101f17] text-[13px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[#a23e18] text-base">support_agent</span>
               <span>All Campus Desks &amp; Shuttles</span>
             </button>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onLogout();
+                }}
+                className="w-full py-2 px-3 rounded-lg bg-[#fde8e8] text-[#9b1c1c] text-[13px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">logout</span>
+                <span>Sign Out / Log Out</span>
+              </button>
+            )}
           </div>
         </div>
       )}

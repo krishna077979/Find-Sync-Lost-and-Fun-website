@@ -82,6 +82,57 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
     setClaimSaved(true);
   };
 
+  if (!matchCase || matchCase.confidenceScore === 0 || matchRejected) {
+    return (
+      <div className="w-full flex flex-col gap-6 py-6 animate-in fade-in">
+        <nav className="flex items-center gap-2 text-[13px] font-semibold text-[#414844]">
+          <button
+            type="button"
+            onClick={() => onNavigateToTab('explore')}
+            className="hover:text-[#012d1d] transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-base">arrow_back</span>
+            <span>Return to Explore Feed</span>
+          </button>
+        </nav>
+
+        <div className="bg-white rounded-2xl p-10 text-center border border-[#d5e7da] shadow-sm flex flex-col items-center justify-center max-w-2xl mx-auto my-8">
+          <div className="w-16 h-16 rounded-2xl bg-[#e6f8eb] text-[#012d1d] flex items-center justify-center mb-4">
+            <span className="material-symbols-outlined text-3xl">radar</span>
+          </div>
+          <h2 className="text-2xl font-bold text-[#012d1d] tracking-tight">
+            No Potential Matches Yet
+          </h2>
+          <p className="text-sm text-[#414844] mt-2 max-w-md leading-relaxed">
+            {matchRejected
+              ? 'You indicated this item was not yours. Our campus matching engine has updated its correlation criteria.'
+              : 'Our automated campus matching engine compares category, colorway, timeline proximity, and GPS building coordinates. As soon as an intake item matches your lost report criteria, it will appear here.'}
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigateToTab('report-lost')}
+              className="px-5 py-2.5 rounded-xl bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] transition-all cursor-pointer shadow-sm"
+            >
+              Report a Lost Item
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigateToTab('explore')}
+              className="px-5 py-2.5 rounded-xl bg-[#e6f8eb] text-[#012d1d] text-xs font-bold hover:bg-[#dbede0] transition-all cursor-pointer border border-[#c1ecd4]"
+            >
+              Browse Campus Custody Feed
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const confidenceScore = matchCase.confidenceScore || 0;
+  const strokeDashoffsetValue = 314.15 * (1 - confidenceScore / 100);
+
   return (
     <div className="w-full flex flex-col gap-6">
       {/* Top Meta Breadcrumbs & Case Status Bar */}
@@ -98,7 +149,7 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
             </button>
             <span className="text-[#c1c8c2] font-medium">/</span>
             <span className="text-[#101f17] font-semibold tracking-tight">
-              {matchCase.id} (Noise-Cancelling Headphones)
+              {matchCase.id} ({matchCase.lostItem.title})
             </span>
           </nav>
 
@@ -107,12 +158,12 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
               Potential Item Match Found
             </h1>
             <span className="text-[11px] uppercase tracking-wider text-[#a23e18] font-bold bg-[#ffdbcf] px-2 py-0.5 rounded-full">
-              Automated Cross-Check
+              Automated Cross-Check ({confidenceScore}%)
             </span>
           </div>
 
           <p className="text-[14px] text-[#414844] max-w-3xl leading-relaxed">
-            Our campus matching algorithm paired your lost item report with an intake record processed at the Caldwell Student Union Desk. Review visual discrepancies, location proximity, and file an ownership claim.
+            Our campus matching algorithm paired your lost item report with an intake record processed at the campus custody desk. Review visual discrepancies, location proximity, and file an ownership claim.
           </p>
         </div>
 
@@ -314,18 +365,7 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
                   fill="none"
                   r="50"
                   strokeDasharray="314.15"
-                  strokeDashoffset="44"
-                  strokeLinecap="round"
-                  strokeWidth="9"
-                />
-                <circle
-                  className="stroke-[#a23e18] transition-all duration-1000 ease-out"
-                  cx="60"
-                  cy="60"
-                  fill="none"
-                  r="50"
-                  strokeDasharray="314.15"
-                  strokeDashoffset="290"
+                  strokeDashoffset={strokeDashoffsetValue}
                   strokeLinecap="round"
                   strokeWidth="9"
                 />
@@ -432,7 +472,7 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
             <div className="mt-4 flex flex-col gap-1">
               <h3 className="text-[15px] font-bold text-[#101f17]">Geospatial Proximity</h3>
               <p className="text-[13px] text-[#414844]">
-                Main Library 2nd Floor to Student Union represents a direct 180m pedestrian path through Central Quad.
+                Central University Library (23.1787° N, 77.4922° E) to Food Court &amp; Canteen (23.1784° N, 77.4923° E) represents a direct 140m pedestrian path across SAGE Bhopal Central Lawn.
               </p>
             </div>
             <div className="mt-4 w-full bg-[#dbede0] h-2 rounded-full overflow-hidden">
@@ -449,13 +489,13 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
           <div className="flex items-center justify-between pb-2 border-b border-[#e0f2e6]">
             <div className="flex flex-col">
               <span className="text-[11px] uppercase font-bold tracking-wider text-[#a23e18]">
-                Campus Movement Corridor
+                SAGE University, Bhopal · Campus Corridor
               </span>
-              <h3 className="text-[18px] text-[#012d1d] font-bold">180-Meter Pedestrian Route</h3>
+              <h3 className="text-[18px] text-[#012d1d] font-bold">140-Meter Pedestrian Route</h3>
             </div>
             <span className="px-2.5 py-1 rounded-md bg-[#e6f8eb] text-[12px] text-[#012d1d] font-bold flex items-center gap-1 border border-[#c1ecd4]">
               <span className="material-symbols-outlined text-sm text-[#012d1d]">directions_walk</span>
-              <span>~3 min transit time</span>
+              <span>~2 min transit time</span>
             </span>
           </div>
 
@@ -472,8 +512,8 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
                   <span className="material-symbols-outlined text-lg">local_library</span>
                 </span>
                 <div className="flex flex-col text-left">
-                  <span className="text-[13px] font-bold text-[#101f17]">Caldwell Main Library</span>
-                  <span className="text-[11px] text-[#a23e18] font-bold">Lost Site · 2:15 PM</span>
+                  <span className="text-[13px] font-bold text-[#101f17]">Central University Library</span>
+                  <span className="text-[11px] text-[#a23e18] font-bold">Lost Site · 23.1787° N, 77.4922° E · 2:15 PM</span>
                 </div>
               </div>
 
@@ -492,14 +532,14 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
                 </svg>
               </div>
 
-              {/* Found Pin: Student Union */}
+              {/* Found Pin: Student Union / Food Court */}
               <div className="self-end bg-white/95 backdrop-blur-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-2.5 pointer-events-auto border border-[#d5e7da]">
                 <div className="flex flex-col text-right">
-                  <span className="text-[13px] font-bold text-[#101f17]">Caldwell Student Union</span>
-                  <span className="text-[11px] text-[#012d1d] font-bold">Custody Intake · 4:30 PM</span>
+                  <span className="text-[13px] font-bold text-[#101f17]">Main Food Court &amp; Canteen</span>
+                  <span className="text-[11px] text-[#012d1d] font-bold">Custody Intake · 23.1784° N, 77.4923° E · 4:30 PM</span>
                 </div>
                 <span className="w-8 h-8 rounded-full bg-[#012d1d] text-white flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-lg">meeting_room</span>
+                  <span className="material-symbols-outlined text-lg">restaurant</span>
                 </span>
               </div>
             </div>
@@ -508,14 +548,14 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
             <div className="absolute bottom-2.5 left-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-white/90 backdrop-blur-xs flex items-center justify-between text-[11px] text-[#414844] pointer-events-none border border-[#d5e7da]">
               <span className="flex items-center gap-1 font-semibold text-[#012d1d]">
                 <span className="material-symbols-outlined text-xs text-[#012d1d]">my_location</span>
-                Central Academic Quadrangle
+                SAGE University, Bhopal (Katara Hills Extension · 23.1785° N, 77.4920° E)
               </span>
-              <span className="font-medium">Intake Station: Desk Counter #2</span>
+              <span className="font-medium">Intake Station: Lost &amp; Found Desk #2</span>
             </div>
           </div>
 
           <p className="text-[13px] text-[#414844] mt-4 leading-relaxed">
-            Property was found unattended in the ground-floor vending lounge of the Student Union, directly on the corridor connecting from the Main Library exit plaza.
+            Property was found unattended in the open seating pavilion of the Main Campus Food Court &amp; Canteen, directly on the 140-meter walking corridor connecting from Central University Library exit.
           </p>
         </div>
 

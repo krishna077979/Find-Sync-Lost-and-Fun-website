@@ -876,7 +876,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                         {hasMatch && !isReunited && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#ffdbcf] text-[#a23e18] text-[11px] font-bold shadow-md border border-[#a23e18]/20">
                             <span className="material-symbols-outlined text-xs text-[#a23e18]">auto_awesome</span>
-                            Potential Match ({item.matchScore || 86}%)
+                            {item.matchScore ? `Potential Match (${item.matchScore}%)` : 'Potential Match Detected'}
                           </span>
                         )}
                         {isReunited && (
@@ -917,10 +917,23 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                           {item.title}
                         </h2>
 
-                        <div className="flex items-center gap-1.5 text-[#414844] text-[12px]">
-                          <span className="material-symbols-outlined text-base text-[#a23e18]">location_on</span>
-                          <span className="truncate">{item.locationName}</span>
-                          {item.roomZone && <span className="text-[#717973] truncate">· {item.roomZone}</span>}
+                        <div className="flex flex-col gap-0.5 text-[#414844] text-[12px]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-base text-[#a23e18]">location_on</span>
+                            <span className="truncate font-semibold text-[#101f17]">
+                              {item.campusName ? `${item.campusName} · ` : ''}{item.locationName}
+                            </span>
+                          </div>
+                          {(item.roomZone || item.locationCoordinates) && (
+                            <span className="text-[11px] text-[#717973] pl-5 truncate">
+                              {item.roomZone ? `${item.roomZone} ` : ''}
+                              {typeof item.locationCoordinates === 'object' && item.locationCoordinates?.formatted
+                                ? `(${item.locationCoordinates.formatted})`
+                                : typeof item.locationCoordinates === 'string'
+                                ? `(${item.locationCoordinates})`
+                                : ''}
+                            </span>
+                          )}
                         </div>
 
                         <p className="text-[13px] text-[#414844] line-clamp-2 leading-snug mt-0.5">

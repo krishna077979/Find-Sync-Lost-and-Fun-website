@@ -197,9 +197,16 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
       }
     }
     if (step === 2) {
-      if (!building.trim()) {
-        setValidationError('Please specify or pin the campus building where the item was lost.');
-        return false;
+      if (isOtherLocation) {
+        if (!otherLocationDescription.trim()) {
+          setValidationError('Please provide a description of the specific campus location.');
+          return false;
+        }
+      } else {
+        if (!building.trim()) {
+          setValidationError('Please select or pin the campus building where the item was lost.');
+          return false;
+        }
       }
     }
     if (step === 3) {
@@ -233,6 +240,7 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
     setIsSubmitting(true);
 
     setTimeout(() => {
+      const resolvedLocationName = isOtherLocation ? otherLocationDescription : building;
       const newItem: Item = {
         id: `lost-${Date.now()}`,
         reportCode: `#LR-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -244,9 +252,15 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
         colorway,
         description,
         campusId,
+        campusName: currentCampusConfig.name,
+        buildingArea: resolvedLocationName,
+        locationCategory: isOtherLocation ? 'other' : locationCategory,
+        isOtherLocation,
+        otherLocationDescription: isOtherLocation ? otherLocationDescription : undefined,
+        locationCoordinates: locationCoordinates || undefined,
         facilitySector,
         shuttleLine: facilitySector === 'transit' ? shuttleLine : undefined,
-        locationName: building,
+        locationName: resolvedLocationName,
         roomZone: pinCoordinates ? `${roomZone} (${pinCoordinates})` : roomZone,
         dateLostOrFound: 'Today',
         timeString: 'Just now',
@@ -562,6 +576,15 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Photo Capture & Upload Area - Placed immediately after Title and Category */}
+                  <div className="pt-2 pb-1 border-t border-[#e0f2e6]">
+                    <CameraCaptureWidget
+                      currentPhotoUrl={photoUrl}
+                      onPhotoCaptured={(url) => setPhotoUrl(url)}
+                      onPhotoRemoved={() => setPhotoUrl(null)}
+                    />
+                  </div>
+
                   {/* Brand & Model */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
@@ -642,15 +665,6 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
                   </div>
                 </section>
 
-                {/* Section 2: Photo Capture & Gallery */}
-                <section className="bg-white rounded-xl p-6 shadow-sm border border-[#d5e7da] flex flex-col gap-4">
-                  <CameraCaptureWidget
-                    currentPhotoUrl={photoUrl}
-                    onPhotoCaptured={(url) => setPhotoUrl(url)}
-                    onPhotoRemoved={() => setPhotoUrl(null)}
-                  />
-                </section>
-
                 <div className="flex justify-end">
                   <button
                     type="button"
@@ -718,87 +732,197 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Campus & Sector Selector */}
+                  {/* Campus Selection & Category Filter */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[13px] text-[#101f17] font-semibold">Campus Zone</label>
+                      <label className="text-[13px] text-[#101f17] font-semibold flex items-center justify-between">
+                        <span>Campus <span className="text-[#a23e18]">*</span></span>
+                        <span className="text-[11px] text-[#012d1d] font-bold bg-[#e6f8eb] px-2 py-0.5 rounded-md">
+                          {currentCampusConfig.shortCode}
+                        </span>
+                      </label>
                       <select
                         value={campusId}
-                        onChange={(e) => setCampusId(e.target.value as CampusId)}
-                        className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#012d1d] cursor-pointer"
-                      >
-                        <option value="main-campus">Main Campus (Central Quad District)</option>
-                        <option value="downtown-medical">Downtown Health Sciences &amp; Medical</option>
-                        <option value="north-research">North Campus &amp; Tech Innovation Park</option>
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[13px] text-[#101f17] font-semibold">Facility Sector</label>
-                      <select
-                        value={facilitySector}
                         onChange={(e) => {
-                          const sec = e.target.value as FacilitySector;
-                          setFacilitySector(sec);
-                          if (sec === 'academic') setBuilding('Caldwell Main Library');
-                          else if (sec === 'residence') setBuilding('South Tower Dorms');
-                          else if (sec === 'transit') {
-                            setBuilding('Campus Transit Shuttle Bus');
-                            setShuttleLine('Blue Line Shuttle #12');
-                          } else if (sec === 'athletics') setBuilding('Athletics & Recreation Arena');
-                          else if (sec === 'student_life') setBuilding('Student Union & Campus Center');
+                          const newId = e.target.value as CampusId;
+                          setCampusId(newId);
+                          const cfg = getCampusById(newId);
+                          if (cfg.areas && cfg.areas.length > 0) {
+                            setBuilding(cfg.areas[0].name);
+                            setLocationCategory(cfg.areas[0].category);
+                            setIsOtherLocation(false);
+                            const coordStr = `${cfg.areas[0].lat.toFixed(4)}° N, ${cfg.areas[0].lng.toFixed(4)}° E`;
+                            setLocationCoordinates({
+                              lat: cfg.areas[0].lat,
+                              lng: cfg.areas[0].lng,
+                              formatted: coordStr,
+                            });
+                            setPinCoordinates(`Pin: ${cfg.areas[0].name} (${cfg.areas[0].code}) · ${coordStr}`);
+                          }
                         }}
                         className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#012d1d] cursor-pointer"
                       >
-                        <option value="academic">Academic Classrooms &amp; Libraries</option>
-                        <option value="residence">Residence Halls &amp; Dormitories</option>
-                        <option value="transit">Campus Transit &amp; Shuttle Routes</option>
-                        <option value="athletics">Athletic Arenas &amp; Gyms</option>
-                        <option value="student_life">Student Union &amp; Dining Hall</option>
+                        {allCampuses.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.shortCode})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[13px] text-[#101f17] font-semibold">Location Category</label>
+                      <select
+                        value={locationCategory}
+                        onChange={(e) => {
+                          const cat = e.target.value as CampusAreaCategory | 'all';
+                          setLocationCategory(cat);
+                          if (cat === 'other') {
+                            setIsOtherLocation(true);
+                          } else {
+                            setIsOtherLocation(false);
+                            const matching = cat === 'all'
+                              ? currentCampusConfig.areas
+                              : currentCampusConfig.areas.filter((a) => a.category === cat);
+                            if (matching.length > 0) {
+                              setBuilding(matching[0].name);
+                              const coordStr = `${matching[0].lat.toFixed(4)}° N, ${matching[0].lng.toFixed(4)}° E`;
+                              setLocationCoordinates({
+                                lat: matching[0].lat,
+                                lng: matching[0].lng,
+                                formatted: coordStr,
+                              });
+                              setPinCoordinates(`Pin: ${matching[0].name} (${matching[0].code}) · ${coordStr}`);
+                            }
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#012d1d] cursor-pointer"
+                      >
+                        <option value="all">All Categories (Show All Areas)</option>
+                        {CAMPUS_AREA_CATEGORIES.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
 
-                  {/* Building & Specific Room */}
+                  {/* Building / Campus Area Dropdown & Specific Spot */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[13px] text-[#101f17] font-semibold" htmlFor="building-input">
-                        Building / Facility Name <span className="text-[#a23e18]">*</span>
+                      <label className="text-[13px] text-[#101f17] font-semibold flex items-center justify-between" htmlFor="building-select">
+                        <span>Building / Campus Area <span className="text-[#a23e18]">*</span></span>
+                        {isOtherLocation && (
+                          <span className="text-[11px] text-[#a23e18] font-bold bg-[#ffdbcf] px-2 py-0.5 rounded-full">
+                            Custom Location Active
+                          </span>
+                        )}
                       </label>
-                      <input
-                        id="building-input"
-                        type="text"
-                        required
-                        value={building}
-                        onChange={(e) => setBuilding(e.target.value)}
-                        placeholder="e.g., Main Library, Birch Hall Dorms, Sports Arena..."
-                        className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
-                      />
+                      <select
+                        id="building-select"
+                        value={isOtherLocation ? '__other__' : building}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '__other__') {
+                            setIsOtherLocation(true);
+                          } else {
+                            setIsOtherLocation(false);
+                            setBuilding(val);
+                            const matched = currentCampusConfig.areas.find((a) => a.name === val);
+                            if (matched) {
+                              const coordStr = `${matched.lat.toFixed(4)}° N, ${matched.lng.toFixed(4)}° E`;
+                              setLocationCoordinates({
+                                lat: matched.lat,
+                                lng: matched.lng,
+                                formatted: coordStr,
+                              });
+                              setPinCoordinates(`Pin: ${matched.name} (${matched.code}) · ${coordStr}`);
+                              setLocationCategory(matched.category);
+                            }
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#012d1d] cursor-pointer"
+                      >
+                        {(locationCategory === 'all'
+                          ? currentCampusConfig.areas
+                          : currentCampusConfig.areas.filter((a) => a.category === locationCategory)
+                        ).map((a) => (
+                          <option key={a.id} value={a.name}>
+                            {a.name} ({a.code})
+                          </option>
+                        ))}
+                        <option value="__other__">Other (Enter custom campus location)</option>
+                      </select>
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[13px] text-[#101f17] font-semibold" htmlFor="room-input">
-                        Specific Room / Pod / Seat
+                    {isOtherLocation ? (
+                      <div className="flex flex-col gap-1 animate-in fade-in">
+                        <label className="text-[13px] text-[#101f17] font-semibold flex justify-between" htmlFor="other-desc-input">
+                          <span>Custom Location Description <span className="text-[#a23e18]">*</span></span>
+                          <span className="text-[11px] text-[#a23e18] font-semibold">Describe spot</span>
+                        </label>
+                        <input
+                          id="other-desc-input"
+                          type="text"
+                          required
+                          value={otherLocationDescription}
+                          onChange={(e) => setOtherLocationDescription(e.target.value)}
+                          placeholder="e.g., Near fountain in Central Quad, behind canteen lawn..."
+                          className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#a23e18] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#a23e18]"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[13px] text-[#101f17] font-semibold" htmlFor="room-input">
+                          Specific Room / Pod / Seat
+                        </label>
+                        <input
+                          id="room-input"
+                          type="text"
+                          value={roomZone}
+                          onChange={(e) => setRoomZone(e.target.value)}
+                          placeholder="e.g., 3rd Floor Quiet Study Pod #12, Table near window"
+                          className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* If Other location description is chosen, also provide optional sub-spot input */}
+                  {isOtherLocation && (
+                    <div className="flex flex-col gap-1 animate-in fade-in">
+                      <label className="text-[13px] text-[#101f17] font-semibold" htmlFor="room-input-other">
+                        Specific Point / Landmark Reference (Optional)
                       </label>
                       <input
-                        id="room-input"
+                        id="room-input-other"
                         type="text"
                         value={roomZone}
                         onChange={(e) => setRoomZone(e.target.value)}
-                        placeholder="e.g., 3rd Floor Quiet Study Pod #12, Table near window"
+                        placeholder="e.g., Near column #4, north entrance walkway, bicycle stand..."
                         className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
                       />
                     </div>
-                  </div>
+                  )}
 
                   {/* Interactive Map Pin Selector */}
                   <div className="pt-2">
                     <CampusMapPicker
                       campusId={campusId}
-                      selectedLocationName={building}
-                      onSelectLocation={(name, pinCoord) => {
-                        setBuilding(name);
+                      selectedLocationName={isOtherLocation ? otherLocationDescription : building}
+                      onSelectLocation={(name, pinCoord, coordsObj, areaObj) => {
+                        if (areaObj) {
+                          setBuilding(name);
+                          setIsOtherLocation(false);
+                          setLocationCategory(areaObj.category);
+                        } else {
+                          if (!isOtherLocation) {
+                            setBuilding(name);
+                          }
+                        }
                         if (pinCoord) setPinCoordinates(pinCoord);
+                        if (coordsObj) setLocationCoordinates(coordsObj);
                       }}
                     />
                   </div>
@@ -942,10 +1066,12 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
                     </div>
 
                     <div className="p-3.5 bg-[#f7fdf9] rounded-xl border border-[#d5e7da] flex flex-col gap-1.5">
-                      <span className="font-bold text-[#012d1d] text-sm">Location &amp; Window</span>
-                      <p><strong>Campus:</strong> {campusId.replace('-', ' ').toUpperCase()}</p>
-                      <p><strong>Building:</strong> {building}</p>
-                      <p><strong>Room/Zone:</strong> {roomZone} {pinCoordinates && `(${pinCoordinates})`}</p>
+                      <span className="font-bold text-[#012d1d] text-sm">Campus Location &amp; Window</span>
+                      <p><strong>Campus:</strong> {currentCampusConfig.name} ({currentCampusConfig.shortCode})</p>
+                      <p><strong>Area / Building:</strong> {isOtherLocation ? `${otherLocationDescription} (Custom Location)` : building}</p>
+                      <p><strong>Category:</strong> {CAMPUS_AREA_CATEGORIES.find((c) => c.id === locationCategory)?.label || locationCategory}</p>
+                      <p><strong>Room / Specific Spot:</strong> {roomZone || 'Not specified'}</p>
+                      <p><strong>Coordinates:</strong> {locationCoordinates?.formatted || 'Verified campus center'}</p>
                       <p><strong>Date &amp; Time:</strong> {dateLost} ({timeBracket})</p>
                     </div>
                   </div>

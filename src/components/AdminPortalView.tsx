@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { Item, MatchCase, UserProfile } from '../types';
 import { INITIAL_USERS } from '../data/mockData';
+import {
+  CampusConfiguration,
+  CampusLocationArea,
+  CampusAreaCategory,
+  CAMPUS_AREA_CATEGORIES,
+  getCampusConfigurations,
+  saveCampusConfigurations,
+  resetCampusConfigurationsToDefault,
+} from '../data/campusConfig';
 
 interface AdminPortalViewProps {
   items: Item[];
@@ -19,7 +28,28 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   currentUser,
   onSwitchToStaff,
 }) => {
-  const [adminTab, setAdminTab] = useState<'claims' | 'items' | 'moderation' | 'users' | 'audit_log'>('claims');
+  const [adminTab, setAdminTab] = useState<'claims' | 'items' | 'moderation' | 'users' | 'audit_log' | 'campus_config'>('claims');
+  
+  // Campus Configuration state
+  const [campusConfigs, setCampusConfigs] = useState<CampusConfiguration[]>(getCampusConfigurations());
+  const [selectedCampusId, setSelectedCampusId] = useState<string>('sage-bhopal');
+  const [isAddingCampus, setIsAddingCampus] = useState(false);
+  const [newCampusName, setNewCampusName] = useState('');
+  const [newCampusShortCode, setNewCampusShortCode] = useState('');
+  const [newCampusAddress, setNewCampusAddress] = useState('');
+  const [newCampusLat, setNewCampusLat] = useState('23.1785');
+  const [newCampusLng, setNewCampusLng] = useState('77.4920');
+
+  // Building / Area creation state
+  const [isAddingArea, setIsAddingArea] = useState(false);
+  const [newAreaName, setNewAreaName] = useState('');
+  const [newAreaCode, setNewAreaCode] = useState('');
+  const [newAreaCategory, setNewAreaCategory] = useState<CampusAreaCategory>('academic');
+  const [newAreaLat, setNewAreaLat] = useState('23.1785');
+  const [newAreaLng, setNewAreaLng] = useState('77.4920');
+  const [newAreaDesk, setNewAreaDesk] = useState('Campus Support Helpdesk');
+  const [newAreaDesc, setNewAreaDesc] = useState('');
+
   const [isVerifying, setIsVerifying] = useState(false);
   const [claimApproved, setClaimApproved] = useState(false);
   const [claimRejected, setClaimRejected] = useState(false);
@@ -258,6 +288,19 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         >
           <span className="material-symbols-outlined text-base">history</span>
           <span>Custody Audit Trail</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setAdminTab('campus_config')}
+          className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            adminTab === 'campus_config'
+              ? 'bg-[#012d1d] text-white shadow-xs'
+              : 'bg-white border border-[#d5e7da] text-[#414844] hover:bg-[#e6f8eb]'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">domain</span>
+          <span>Campus &amp; Location Config</span>
         </button>
       </div>
 
@@ -746,6 +789,569 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* TAB 5: CAMPUS & LOCATION CONFIGURATION */}
+      {adminTab === 'campus_config' && (
+        <div className="flex flex-col gap-6 animate-in fade-in">
+          {/* Top Header Card */}
+          <div className="bg-white rounded-2xl p-6 border border-[#d5e7da] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1b4332]" />
+                <span className="text-[12px] font-bold uppercase tracking-wider text-[#012d1d]">
+                  Geographic &amp; Infrastructure Governance
+                </span>
+              </div>
+              <h2 className="text-[22px] font-bold text-[#012d1d] mt-1">Campus Configuration Hub</h2>
+              <p className="text-[13px] text-[#414844] max-w-2xl mt-0.5">
+                Configure campuses, building directories, verified GPS coordinates, and map pins. Changes instantly sync to the student loss/found reporting forms and automated matching engines.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  const defaults = resetCampusConfigurationsToDefault();
+                  setCampusConfigs(defaults);
+                  setActionNotice('Restored verified SAGE University, Bhopal & Indore default configurations.');
+                }}
+                className="px-3.5 py-2 rounded-xl bg-white border border-[#d5e7da] text-[#414844] hover:bg-[#e6f8eb] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Reset to factory verified coordinates"
+              >
+                <span className="material-symbols-outlined text-base">restart_alt</span>
+                <span>Reset to Defaults</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  saveCampusConfigurations(campusConfigs);
+                  setActionNotice('Campus configurations & verified coordinates saved and synced system-wide!');
+                }}
+                className="px-4 py-2 rounded-xl bg-[#012d1d] text-white hover:bg-[#1b4332] text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">save</span>
+                <span>Save All Changes</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Campus Selector Bar & Add Campus Action */}
+          <div className="bg-white rounded-2xl p-4 border border-[#d5e7da] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+              <span className="text-xs font-bold text-[#414844] mr-1 shrink-0">Configured Campuses:</span>
+              {campusConfigs.map((c) => {
+                const isSelected = selectedCampusId === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSelectedCampusId(c.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-[#012d1d] text-white shadow-xs'
+                        : 'bg-[#e6f8eb] text-[#012d1d] hover:bg-[#dbede0] border border-[#c1ecd4]'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">domain</span>
+                    <span>{c.name}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-[#c1ecd4] text-[#012d1d]'
+                    }`}>
+                      {c.areas.length} areas
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAddingCampus(!isAddingCampus)}
+              className="px-3.5 py-1.5 rounded-xl bg-[#ffdbcf] text-[#a23e18] hover:bg-[#fed3c4] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <span className="material-symbols-outlined text-base">add_business</span>
+              <span>{isAddingCampus ? 'Cancel New Campus' : '+ Add New Campus'}</span>
+            </button>
+          </div>
+
+          {/* Add Campus Modal Form */}
+          {isAddingCampus && (
+            <div className="bg-[#f7fdf9] rounded-2xl p-5 border border-[#85f8c4] shadow-sm flex flex-col gap-4 animate-in fade-in">
+              <div className="flex items-center justify-between pb-2 border-b border-[#c1ecd4]">
+                <h3 className="text-sm font-bold text-[#012d1d] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-base text-[#a23e18]">add_location_alt</span>
+                  <span>Provision New University Campus</span>
+                </h3>
+                <span className="text-[11px] text-[#414844]">Multi-Campus Support</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-[#101f17]">Campus Full Name *</label>
+                  <input
+                    type="text"
+                    value={newCampusName}
+                    onChange={(e) => setNewCampusName(e.target.value)}
+                    placeholder="e.g., SAGE University, Bhopal"
+                    className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-[#101f17]">Campus Short Code *</label>
+                  <input
+                    type="text"
+                    value={newCampusShortCode}
+                    onChange={(e) => setNewCampusShortCode(e.target.value)}
+                    placeholder="e.g., SUB"
+                    className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-[#101f17]">Address &amp; Landmark</label>
+                  <input
+                    type="text"
+                    value={newCampusAddress}
+                    onChange={(e) => setNewCampusAddress(e.target.value)}
+                    placeholder="e.g., Katara Hills Extension, Bhopal"
+                    className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-[#101f17]">Center Latitude *</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={newCampusLat}
+                    onChange={(e) => setNewCampusLat(e.target.value)}
+                    placeholder="23.1785"
+                    className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-[#101f17]">Center Longitude *</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={newCampusLng}
+                    onChange={(e) => setNewCampusLng(e.target.value)}
+                    placeholder="77.4920"
+                    className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCampus(false)}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-[#d5e7da] text-xs font-bold text-[#414844] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!newCampusName.trim() || !newCampusShortCode.trim()) {
+                      alert('Please specify campus name and code.');
+                      return;
+                    }
+                    const newId = `campus-${Date.now()}`;
+                    const latNum = parseFloat(newCampusLat) || 23.1785;
+                    const lngNum = parseFloat(newCampusLng) || 77.4920;
+                    const latDir = latNum >= 0 ? 'N' : 'S';
+                    const lngDir = lngNum >= 0 ? 'E' : 'W';
+                    const newCampusObj: CampusConfiguration = {
+                      id: newId,
+                      name: newCampusName.trim(),
+                      shortCode: newCampusShortCode.trim().toUpperCase(),
+                      tagline: newCampusAddress.trim() || 'University Campus Location',
+                      address: newCampusAddress.trim(),
+                      centerCoordinates: {
+                        lat: latNum,
+                        lng: lngNum,
+                        formatted: `${Math.abs(latNum).toFixed(4)}° ${latDir}, ${Math.abs(lngNum).toFixed(4)}° ${lngDir}`,
+                      },
+                      itemCount: 0,
+                      desksCount: 1,
+                      areas: [
+                        {
+                          id: `${newId}-area-1`,
+                          name: 'Central Academic Block',
+                          code: `${newCampusShortCode.trim().toUpperCase()}-MAIN`,
+                          category: 'academic',
+                          categoryLabel: 'Academic Blocks',
+                          x: 50,
+                          y: 50,
+                          lat: latNum,
+                          lng: lngNum,
+                          deskNearby: 'Main Security Reception',
+                        },
+                      ],
+                    };
+                    const updated = [...campusConfigs, newCampusObj];
+                    setCampusConfigs(updated);
+                    saveCampusConfigurations(updated);
+                    setSelectedCampusId(newId);
+                    setIsAddingCampus(false);
+                    setNewCampusName('');
+                    setNewCampusShortCode('');
+                    setNewCampusAddress('');
+                    setActionNotice(`Campus "${newCampusObj.name}" created and saved successfully!`);
+                  }}
+                  className="px-4 py-1.5 rounded-lg bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] cursor-pointer shadow-xs"
+                >
+                  Confirm &amp; Add Campus
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Active Campus Configuration Details */}
+          {(() => {
+            const activeCampus = campusConfigs.find((c) => c.id === selectedCampusId) || campusConfigs[0];
+            if (!activeCampus) return null;
+
+            return (
+              <div className="flex flex-col gap-6">
+                {/* Campus Overview & Coordinates Card */}
+                <div className="bg-white rounded-2xl p-6 border border-[#d5e7da] shadow-xs flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#e0f2e6] gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 h-10 rounded-xl bg-[#e6f8eb] text-[#012d1d] flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined text-2xl">account_balance</span>
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-bold text-[#012d1d]">{activeCampus.name}</h3>
+                          <span className="px-2 py-0.5 rounded-md bg-[#dbede0] text-[#012d1d] font-bold text-xs">
+                            {activeCampus.shortCode}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#414844] mt-0.5">{activeCampus.address || activeCampus.tagline}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full bg-[#f7fdf9] border border-[#d5e7da] text-xs font-mono text-[#012d1d]">
+                        Center: {activeCampus.centerCoordinates.formatted}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Editable Center Coordinates Form */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="flex flex-col gap-1">
+                      <label className="font-semibold text-[#101f17]">Campus Display Name</label>
+                      <input
+                        type="text"
+                        value={activeCampus.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCampusConfigs((prev) =>
+                            prev.map((c) => (c.id === activeCampus.id ? { ...c, name: val } : c))
+                          );
+                        }}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-[#101f17]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-semibold text-[#101f17]">Short Code</label>
+                      <input
+                        type="text"
+                        value={activeCampus.shortCode}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCampusConfigs((prev) =>
+                            prev.map((c) => (c.id === activeCampus.id ? { ...c, shortCode: val } : c))
+                          );
+                        }}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-[#101f17]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-semibold text-[#101f17]">Latitude Coordinate</label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={activeCampus.centerCoordinates.lat}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          const lng = activeCampus.centerCoordinates.lng;
+                          const latDir = val >= 0 ? 'N' : 'S';
+                          const lngDir = lng >= 0 ? 'E' : 'W';
+                          setCampusConfigs((prev) =>
+                            prev.map((c) =>
+                              c.id === activeCampus.id
+                                ? {
+                                    ...c,
+                                    centerCoordinates: {
+                                      lat: val,
+                                      lng,
+                                      formatted: `${Math.abs(val).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`,
+                                    },
+                                  }
+                                : c
+                            )
+                          );
+                        }}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-semibold text-[#101f17]">Longitude Coordinate</label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={activeCampus.centerCoordinates.lng}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          const lat = activeCampus.centerCoordinates.lat;
+                          const latDir = lat >= 0 ? 'N' : 'S';
+                          const lngDir = val >= 0 ? 'E' : 'W';
+                          setCampusConfigs((prev) =>
+                            prev.map((c) =>
+                              c.id === activeCampus.id
+                                ? {
+                                    ...c,
+                                    centerCoordinates: {
+                                      lat,
+                                      lng: val,
+                                      formatted: `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(val).toFixed(4)}° ${lngDir}`,
+                                    },
+                                  }
+                                : c
+                            )
+                          );
+                        }}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Building / Campus Area Directory Management */}
+                <div className="bg-white rounded-2xl p-6 border border-[#d5e7da] shadow-xs flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#e0f2e6] gap-2">
+                    <div>
+                      <h3 className="text-base font-bold text-[#012d1d]">
+                        Configured Buildings &amp; Campus Areas ({activeCampus.areas.length})
+                      </h3>
+                      <p className="text-xs text-[#414844] mt-0.5">
+                        Students can select these locations from the Report Lost &amp; Report Found forms or click them directly on the campus map.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingArea(!isAddingArea)}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#012d1d] text-white hover:bg-[#1b4332] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-base">add</span>
+                      <span>{isAddingArea ? 'Cancel' : '+ Add Building / Area'}</span>
+                    </button>
+                  </div>
+
+                  {/* Add New Area Form Drawer */}
+                  {isAddingArea && (
+                    <div className="p-4 rounded-xl bg-[#e6f8eb]/60 border border-[#c1ecd4] flex flex-col gap-3 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#012d1d] uppercase tracking-wider">
+                          New Location Facility Profile
+                        </span>
+                        <span className="text-[11px] text-[#414844]">Auto-mapped to Interactive Canvas</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#101f17]">Building / Area Name *</label>
+                          <input
+                            type="text"
+                            value={newAreaName}
+                            onChange={(e) => setNewAreaName(e.target.value)}
+                            placeholder="e.g., Computer Center Block C"
+                            className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#101f17]">Short Code *</label>
+                          <input
+                            type="text"
+                            value={newAreaCode}
+                            onChange={(e) => setNewAreaCode(e.target.value)}
+                            placeholder="e.g., COMP-BLK-C"
+                            className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs uppercase"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#101f17]">Category *</label>
+                          <select
+                            value={newAreaCategory}
+                            onChange={(e) => setNewAreaCategory(e.target.value as CampusAreaCategory)}
+                            className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
+                          >
+                            {CAMPUS_AREA_CATEGORIES.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#101f17]">Latitude Coordinate *</label>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            value={newAreaLat}
+                            onChange={(e) => setNewAreaLat(e.target.value)}
+                            className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs font-mono"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#101f17]">Longitude Coordinate *</label>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            value={newAreaLng}
+                            onChange={(e) => setNewAreaLng(e.target.value)}
+                            className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs font-mono"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#101f17]">Intake Desk Proximity</label>
+                          <input
+                            type="text"
+                            value={newAreaDesk}
+                            onChange={(e) => setNewAreaDesk(e.target.value)}
+                            placeholder="e.g., Reception Counter #1"
+                            className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingArea(false)}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-[#d5e7da] text-xs font-bold text-[#414844] cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newAreaName.trim() || !newAreaCode.trim()) {
+                              alert('Please provide building name and code.');
+                              return;
+                            }
+                            const catObj = CAMPUS_AREA_CATEGORIES.find((c) => c.id === newAreaCategory);
+                            const latVal = parseFloat(newAreaLat) || activeCampus.centerCoordinates.lat;
+                            const lngVal = parseFloat(newAreaLng) || activeCampus.centerCoordinates.lng;
+                            const newArea: CampusLocationArea = {
+                              id: `area-${Date.now()}`,
+                              name: newAreaName.trim(),
+                              code: newAreaCode.trim().toUpperCase(),
+                              category: newAreaCategory,
+                              categoryLabel: catObj ? catObj.label : 'Academic Blocks',
+                              x: 45 + Math.round((Math.random() - 0.5) * 30),
+                              y: 45 + Math.round((Math.random() - 0.5) * 30),
+                              lat: latVal,
+                              lng: lngVal,
+                              deskNearby: newAreaDesk.trim() || 'Nearest Lost & Found Station',
+                              description: newAreaDesc.trim() || undefined,
+                            };
+                            setCampusConfigs((prev) =>
+                              prev.map((c) =>
+                                c.id === activeCampus.id
+                                  ? { ...c, areas: [...c.areas, newArea] }
+                                  : c
+                              )
+                            );
+                            setIsAddingArea(false);
+                            setNewAreaName('');
+                            setNewAreaCode('');
+                            setActionNotice(`Added "${newArea.name}" to ${activeCampus.name}. Remember to click "Save All Changes" to persist.`);
+                          }}
+                          className="px-4 py-1.5 rounded-lg bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] cursor-pointer shadow-xs"
+                        >
+                          Append Area
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Area Table List */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {activeCampus.areas.map((area) => {
+                      const catObj = CAMPUS_AREA_CATEGORIES.find((c) => c.id === area.category);
+                      return (
+                        <div
+                          key={area.id}
+                          className="p-3.5 rounded-xl bg-[#fbfdf9] border border-[#d5e7da] flex flex-col justify-between gap-2 shadow-xs hover:border-[#1b4332] transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-7 h-7 rounded-lg bg-[#e6f8eb] text-[#012d1d] flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-base">
+                                  {catObj?.icon || 'domain'}
+                                </span>
+                              </span>
+                              <div>
+                                <h4 className="text-xs font-bold text-[#101f17]">{area.name}</h4>
+                                <span className="text-[11px] font-mono text-[#a23e18] font-bold">
+                                  {area.code}
+                                </span>
+                              </div>
+                            </div>
+
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#dbede0] text-[#012d1d]">
+                              {area.categoryLabel || area.category}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-[#414844] pt-1 border-t border-[#e0f2e6]">
+                            <span className="font-mono">
+                              {area.lat.toFixed(4)}° N, {area.lng.toFixed(4)}° E
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#717973]">{area.deskNearby}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Remove area "${area.name}"?`)) {
+                                    setCampusConfigs((prev) =>
+                                      prev.map((c) =>
+                                        c.id === activeCampus.id
+                                          ? { ...c, areas: c.areas.filter((a) => a.id !== area.id) }
+                                          : c
+                                      )
+                                    );
+                                  }
+                                }}
+                                className="text-[#a23e18] hover:underline font-bold text-[11px] cursor-pointer"
+                                title="Remove this area"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

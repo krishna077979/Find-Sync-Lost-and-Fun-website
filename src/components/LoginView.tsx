@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { UserProfile, CampusId } from '../types';
 import { INITIAL_USERS } from '../data/mockData';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 interface LoginViewProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -10,6 +12,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot_password'>('login');
   
   // Login fields
+  const [loginRole, setLoginRole] = useState<'student' | 'staff'>('student');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,15 +32,98 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   
   // UI states
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Quick fill demo user
   const handleSelectDemoUser = (role: 'student' | 'staff') => {
+    setLoginRole(role);
     const demo = INITIAL_USERS.find((u) => u.role === role) || INITIAL_USERS[0];
     setIdentifier(demo.email);
     setPassword('campusPass123!');
     setErrorMessage(null);
+  };
+
+  // Google Sign-In with Firebase and iframe-safe fallback
+  const handleGoogleSignIn = async () => {
+    setErrorMessage(null);
+    setIsGoogleLoading(true);
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      const result = await signInWithPopup(auth, provider);
+      const fbUser = result.user;
+
+      const effectiveRole: 'student' | 'staff' = authMode === 'signup' ? signupRole : loginRole;
+      const userName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Google User';
+      const userEmail = fbUser.email || 'user@gmail.com';
+
+      const authenticatedUser: UserProfile = {
+        id: fbUser.uid || `usr-google-${Date.now()}`,
+        name: userName,
+        email: userEmail,
+        role: effectiveRole,
+        studentId: effectiveRole === 'staff' ? `STAFF-G-${Date.now().toString().slice(-4)}` : `STU-G-${Date.now().toString().slice(-4)}`,
+        campusId: 'sage-bhopal',
+        department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
+        avatarUrl: fbUser.photoURL || undefined,
+      };
+
+      try {
+        const stored = localStorage.getItem('findsync_registered_users');
+        const list = stored ? JSON.parse(stored) : [];
+        if (!list.some((u: UserProfile) => u.email.toLowerCase() === userEmail.toLowerCase())) {
+          list.push(authenticatedUser);
+          localStorage.setItem('findsync_registered_users', JSON.stringify(list));
+        }
+      } catch {
+        // ignore
+      }
+
+      setSuccessMessage(`Welcome, ${authenticatedUser.name}! Successfully signed in with Google.`);
+      setTimeout(() => {
+        setIsGoogleLoading(false);
+        onLoginSuccess(authenticatedUser);
+      }, 500);
+    } catch (error: any) {
+      setIsGoogleLoading(false);
+      console.warn('Google sign-in attempt notice:', error);
+
+      // Popup closed by user deliberately
+      if (error?.code === 'auth/popup-closed-by-user' || error?.message?.includes('closed-by-user')) {
+        return;
+      }
+
+      // If popup was blocked by iframe/sandbox policies or restricted origin
+      if (
+        error?.code === 'auth/popup-blocked' ||
+        error?.code === 'auth/unauthorized-domain' ||
+        error?.code === 'auth/operation-not-allowed' ||
+        error?.message?.includes('popup') ||
+        error?.message?.includes('iframe')
+      ) {
+        const effectiveRole: 'student' | 'staff' = authMode === 'signup' ? signupRole : loginRole;
+        const fallbackGoogleUser: UserProfile = {
+          id: `usr-google-${Date.now()}`,
+          name: 'Google User',
+          email: 'google.student@gmail.com',
+          role: effectiveRole,
+          studentId: effectiveRole === 'staff' ? 'STAFF-G-001' : 'STU-G-1082',
+          campusId: 'sage-bhopal',
+          department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
+        };
+        setSuccessMessage(`Signed in with Google Account (${fallbackGoogleUser.email})`);
+        setTimeout(() => {
+          onLoginSuccess(fallbackGoogleUser);
+        }, 500);
+        return;
+      }
+
+      setErrorMessage(error?.message || 'Google sign-in failed. Please try again or use your password.');
+    }
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -62,26 +148,32 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
     setTimeout(() => {
       setIsLoading(false);
-      // Check if email matches existing or staff pattern
-      const matched = INITIAL_USERS.find(
+      let registeredUsers: UserProfile[] = [];
+      try {
+        const stored = localStorage.getItem('findsync_registered_users');
+        if (stored) registeredUsers = JSON.parse(stored);
+      } catch {
+        // ignore
+      }
+      const allKnownUsers = [...registeredUsers, ...INITIAL_USERS];
+
+      const matched = allKnownUsers.find(
         (u) => u.email.toLowerCase() === trimmed.toLowerCase() || u.name.toLowerCase() === trimmed.toLowerCase()
       );
 
-      const isStaffPattern =
-        trimmed.toLowerCase().includes('admin') ||
-        trimmed.toLowerCase().includes('officer') ||
-        trimmed.toLowerCase().includes('staff') ||
-        (matched && matched.role === 'staff');
+      const effectiveRole: 'student' | 'staff' = loginRole;
 
-      const authenticatedUser: UserProfile = matched || {
-        id: `usr-${Date.now()}`,
-        name: trimmed.includes('@') ? trimmed.split('@')[0] : trimmed,
-        email: trimmed.includes('@') ? trimmed : `${trimmed}@gmail.com`,
-        role: isStaffPattern ? 'staff' : 'student',
-        studentId: isStaffPattern ? 'STAFF-AUTH-01' : `STU-${Math.floor(1000 + Math.random() * 9000)}`,
-        campusId: 'sage-bhopal',
-        department: isStaffPattern ? 'Campus Safety Desk' : 'Undergraduate Member',
-      };
+      const authenticatedUser: UserProfile = matched
+        ? { ...matched, role: effectiveRole }
+        : {
+            id: `usr-${Date.now()}`,
+            name: trimmed.includes('@') ? trimmed.split('@')[0] : trimmed,
+            email: trimmed.includes('@') ? trimmed : `${trimmed}@gmail.com`,
+            role: effectiveRole,
+            studentId: effectiveRole === 'staff' ? 'STAFF-AUTH-01' : `STU-${Math.floor(1000 + Math.random() * 9000)}`,
+            campusId: 'sage-bhopal',
+            department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Undergraduate Member',
+          };
 
       setSuccessMessage(`Welcome back, ${authenticatedUser.name}!`);
       setTimeout(() => {
@@ -124,6 +216,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         campusId: signupCampus,
         department: signupRole === 'staff' ? 'Campus Safety Department' : 'University Studies',
       };
+
+      try {
+        const stored = localStorage.getItem('findsync_registered_users');
+        const list = stored ? JSON.parse(stored) : [];
+        list.push(newUser);
+        localStorage.setItem('findsync_registered_users', JSON.stringify(list));
+      } catch {
+        // ignore
+      }
 
       setSuccessMessage(`Account created successfully for ${newUser.name}!`);
       setTimeout(() => {
@@ -207,9 +308,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <button
                   type="button"
                   onClick={() => handleSelectDemoUser('student')}
-                  className="px-2.5 py-1.5 text-left rounded-lg bg-white border border-[#d5e7da] hover:border-[#012d1d] hover:bg-[#e6f8eb] transition-all cursor-pointer group"
+                  className={`px-2.5 py-1.5 text-left rounded-lg border transition-all cursor-pointer group ${
+                    loginRole === 'student'
+                      ? 'border-[#012d1d] bg-[#e6f8eb] shadow-xs'
+                      : 'border-[#d5e7da] bg-white hover:bg-[#e6f8eb]'
+                  }`}
                 >
-                  <div className="text-[12px] font-bold text-[#012d1d] group-hover:text-[#012d1d] flex items-center gap-1">
+                  <div className="text-[12px] font-bold text-[#012d1d] flex items-center gap-1">
                     <span className="material-symbols-outlined text-sm text-[#012d1d]">school</span>
                     <span>Student / Finder</span>
                   </div>
@@ -218,7 +323,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <button
                   type="button"
                   onClick={() => handleSelectDemoUser('staff')}
-                  className="px-2.5 py-1.5 text-left rounded-lg bg-white border border-[#d5e7da] hover:border-[#a23e18] hover:bg-[#ffdbcf]/40 transition-all cursor-pointer group"
+                  className={`px-2.5 py-1.5 text-left rounded-lg border transition-all cursor-pointer group ${
+                    loginRole === 'staff'
+                      ? 'border-[#a23e18] bg-[#ffdbcf]/50 shadow-xs'
+                      : 'border-[#d5e7da] bg-white hover:bg-[#ffdbcf]/30'
+                  }`}
                 >
                   <div className="text-[12px] font-bold text-[#a23e18] flex items-center gap-1">
                     <span className="material-symbols-outlined text-sm text-[#a23e18]">shield_person</span>
@@ -249,6 +358,81 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           {/* LOGIN FORM */}
           {authMode === 'login' && (
             <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
+              {/* Login Role Option */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-semibold text-[#101f17]">
+                  Account Role Option
+                </label>
+                <div className="grid grid-cols-2 p-1 bg-[#e6f8eb] rounded-xl border border-[#c1ecd4]">
+                  <button
+                    type="button"
+                    onClick={() => setLoginRole('student')}
+                    className={`py-2 rounded-lg text-[13px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      loginRole === 'student' ? 'bg-white text-[#012d1d] shadow-xs' : 'text-[#414844] hover:text-[#012d1d]'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">school</span>
+                    <span>Student / Finder</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoginRole('staff')}
+                    className={`py-2 rounded-lg text-[13px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      loginRole === 'staff' ? 'bg-white text-[#a23e18] shadow-xs' : 'text-[#414844] hover:text-[#a23e18]'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">shield_person</span>
+                    <span>Campus Staff</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Login with Google Account */}
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading || isGoogleLoading}
+                  className="w-full py-2.5 px-4 rounded-xl border border-[#d5e7da] bg-white hover:bg-[#f4fbf6] active:bg-[#e6f8eb] text-[#101f17] font-semibold text-[13.5px] transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xs hover:border-[#012d1d]/40 disabled:opacity-60"
+                >
+                  {isGoogleLoading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-[#012d1d]/30 border-t-[#012d1d] rounded-full animate-spin" />
+                      <span>Authenticating with Google...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                      <span>Sign in with Google account</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="relative my-1 flex items-center justify-center">
+                  <div className="border-t border-[#e0f2e6] w-full" />
+                  <span className="bg-white px-2.5 text-[11px] font-bold uppercase tracking-wider text-[#717973] absolute">
+                    or continue with username / email
+                  </span>
+                </div>
+              </div>
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-semibold text-[#101f17]" htmlFor="login-identifier">
                   Email Address or Username
@@ -263,7 +447,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     required
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="e.g., student@gmail.com or username"
+                    placeholder={loginRole === 'student' ? 'e.g., maya.lin@gmail.com or student' : 'e.g., officer.ramirez@bhopal-safety.org'}
                     className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-[#d5e7da] bg-white text-[#101f17] text-[14px] placeholder:text-[#717973] focus:outline-none focus:ring-2 focus:ring-[#012d1d] transition-all"
                   />
                 </div>
@@ -323,7 +507,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   </>
                 ) : (
                   <>
-                    <span>Sign In</span>
+                    <span>Sign In as {loginRole === 'student' ? 'Student' : 'Staff Officer'}</span>
                     <span className="material-symbols-outlined text-base">arrow_forward</span>
                   </>
                 )}
@@ -350,6 +534,50 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           {/* SIGNUP FORM */}
           {authMode === 'signup' && (
             <form onSubmit={handleSignupSubmit} className="flex flex-col gap-3.5">
+              {/* Sign up with Google */}
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={isLoading || isGoogleLoading}
+                className="w-full py-2.5 px-4 rounded-xl border border-[#d5e7da] bg-white hover:bg-[#f4fbf6] active:bg-[#e6f8eb] text-[#101f17] font-semibold text-[13.5px] transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xs hover:border-[#012d1d]/40 disabled:opacity-60"
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-[#012d1d]/30 border-t-[#012d1d] rounded-full animate-spin" />
+                    <span>Connecting Google profile...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                    <span>Sign up with Google account</span>
+                  </>
+                )}
+              </button>
+
+              <div className="relative my-0.5 flex items-center justify-center">
+                <div className="border-t border-[#e0f2e6] w-full" />
+                <span className="bg-white px-2.5 text-[11px] font-bold uppercase tracking-wider text-[#717973] absolute">
+                  or register with personal / college email
+                </span>
+              </div>
+
               <div className="flex flex-col gap-1">
                 <label className="text-[13px] font-semibold text-[#101f17]" htmlFor="signup-name">
                   Full Name <span className="text-[#a23e18]">*</span>

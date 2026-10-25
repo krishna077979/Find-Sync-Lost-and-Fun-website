@@ -97,7 +97,7 @@ export default function App() {
   const showNotificationToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
-      setToastMessage(null), 4000;
+      setToastMessage(null);
     }, 4000);
   };
 

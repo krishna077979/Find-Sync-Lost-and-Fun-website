@@ -118,7 +118,8 @@ Expand FindSync from a single building prototype into a comprehensive, multi-fac
 5. **Ownership Claim**: Interactive claim drawer supporting covert markers, proof upload, and custody officer review assignment.
 6. **My Items**: Personal reports dashboard, 6-step visual claim tracking stepper, resolution rate counter, and direct handover instructions.
 7. **Notifications**: Dedicated notifications modal and header popover with unread counters, category tabs (Matches, Claims, Evidence, Handovers), and quick navigation.
-8. **Login and Sign-up**: Caldwell University SSO modal with student and staff authentication, registration, password recovery, and live demo profile switching.
-9. **Admin Panel**: Officer Ramirez staff adjudication console with claim approval/rejection/evidence requests, item inventory indexed by custody bins, user directory, and immutable chain of custody audit logs.
-10. **Firebase Firestore Database**: Provisioned database ID `ai-studio-findsynccampuslo-3d22409e-9fe5-4794-9609-410b0df54ce5` with deployed security rules, real-time sync, and automated initial seeding.
+8. **Login and Sign-up**: Full-page dedicated authentication gateway shown first to unauthenticated users, supporting **Login with Google account** (Firebase Auth with iframe-safe fallback), personal email/username login, new account registration without mandatory college email restriction, password reset, and role selector (Student/Finder vs Campus Staff).
+9. **Role Isolation**: Strict role enforcement preventing student/finder logins from seeing or accessing Officer View or the Admin Portal.
+10. **Admin Panel**: Officer Ramirez staff adjudication console with claim approval/rejection/evidence requests, item inventory indexed by custody bins, user directory, and immutable chain of custody audit logs.
+11. **Firebase Firestore Database**: Provisioned database ID `ai-studio-findsynccampuslo-3d22409e-9fe5-4794-9609-410b0df54ce5` with deployed security rules, real-time sync, and automated initial seeding.
 

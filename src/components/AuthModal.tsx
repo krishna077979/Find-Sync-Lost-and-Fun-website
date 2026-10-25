@@ -126,64 +126,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </div>
 
-            {/* Quick Demo Switcher */}
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-bold text-[#414844] uppercase tracking-wider">
-                Switch Identity Demo Profile:
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSwitchUser({
-                      id: 'usr-student-1',
-                      name: 'Maya Lin',
-                      email: 'maya.lin@caldwell.edu',
-                      role: 'student',
-                      studentId: 'CW-2024-8192',
-                      phone: '(555) 342-9102',
-                      campusId: 'main-campus',
-                      department: 'Computer Science & Design',
-                      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-                    });
-                  }}
-                  className={`p-2.5 rounded-lg border text-left flex flex-col gap-0.5 cursor-pointer transition-all ${
-                    currentUser.role === 'student'
-                      ? 'border-[#012d1d] bg-[#e6f8eb]'
-                      : 'border-[#d5e7da] hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="text-[12px] font-bold text-[#012d1d]">Maya Lin</span>
-                  <span className="text-[10px] text-[#414844]">Student (Claimant)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSwitchUser({
-                      id: 'usr-staff-1',
-                      name: 'Staff Officer R. Ramirez',
-                      email: 'r.ramirez@caldwell.edu',
-                      role: 'staff',
-                      studentId: 'OFFICER-#ST-44',
-                      phone: '(555) 019-4420',
-                      campusId: 'main-campus',
-                      department: 'Campus Safety & Property Custody',
-                      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-                    });
-                  }}
-                  className={`p-2.5 rounded-lg border text-left flex flex-col gap-0.5 cursor-pointer transition-all ${
-                    currentUser.role === 'staff'
-                      ? 'border-[#012d1d] bg-[#e6f8eb]'
-                      : 'border-[#d5e7da] hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="text-[12px] font-bold text-[#012d1d]">Officer Ramirez</span>
-                  <span className="text-[10px] text-[#414844]">Staff (Custody Officer)</span>
-                </button>
-              </div>
-            </div>
-
             {/* Account Information Details */}
             <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-xl border border-[#d5e7da] text-[12px]">
               <div className="flex items-center justify-between">

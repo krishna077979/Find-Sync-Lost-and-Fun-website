@@ -16,7 +16,7 @@ interface HeaderProps {
   matchesCount?: number;
   unreadNotifications?: number;
   userRole: 'student' | 'staff';
-  onToggleRole: () => void;
+  onToggleRole?: () => void;
   currentUser?: UserProfile | null;
   onLogout?: () => void;
 }
@@ -313,7 +313,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {currentUser?.name || (userRole === 'student' ? 'Maya Lin' : 'Officer Ramirez')}
                 </span>
                 <span className="text-[11px] text-[#414844] leading-none">
-                  {userRole === 'student' ? 'Student / Finder' : 'Campus Safety Officer'}
+                  {currentUser?.role === 'staff' ? 'Campus Safety Officer' : 'Student / Finder'}
                 </span>
               </div>
               <span className="material-symbols-outlined text-[#414844] text-base">expand_more</span>
@@ -325,10 +325,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="p-2 border-b border-[#e0f2e6]">
                   <p className="text-[11px] text-[#414844] font-medium">Signed in as</p>
                   <p className="text-[13px] font-bold text-[#012d1d] truncate">
-                    {currentUser?.email || (userRole === 'student' ? 'm.lin@gmail.com' : 'officer.ramirez@bhopal.edu')}
+                    {currentUser?.email || (userRole === 'student' ? 'maya.lin@gmail.com' : 'officer.ramirez@bhopal.edu')}
                   </p>
                   <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#e6f8eb] text-[#012d1d]">
-                    {userRole === 'staff' ? 'Campus Safety Admin' : 'Student / Finder Member'}
+                    {currentUser?.role === 'staff' ? 'Campus Safety Admin' : 'Student / Finder Member'}
                   </span>
                 </div>
                 <div className="py-1">
@@ -343,17 +343,20 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="material-symbols-outlined text-sm">manage_accounts</span>
                     <span>Account Profile</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onToggleRole();
-                      setShowProfileMenu(false);
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-[#a23e18] hover:bg-[#ffdbcf]/50 flex items-center justify-between cursor-pointer"
-                  >
-                    <span>Switch Role View:</span>
-                    <span className="font-bold underline">{userRole === 'student' ? 'Officer View' : 'Student View'}</span>
-                  </button>
+                  {/* Only show role toggle if authenticated user is staff/admin, never for student */}
+                  {(currentUser?.role === 'staff' || currentUser?.role === 'admin') && onToggleRole && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onToggleRole();
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-[#a23e18] hover:bg-[#ffdbcf]/50 flex items-center justify-between cursor-pointer"
+                    >
+                      <span>Role View:</span>
+                      <span className="font-bold underline">{userRole === 'staff' ? 'Preview Student View' : 'Back to Officer View'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -365,7 +368,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="material-symbols-outlined text-sm">inventory_2</span>
                     <span>My Reports &amp; Claims</span>
                   </button>
-                  {userRole === 'staff' && (
+                  {currentUser?.role === 'staff' && userRole === 'staff' && (
                     <button
                       type="button"
                       onClick={() => {

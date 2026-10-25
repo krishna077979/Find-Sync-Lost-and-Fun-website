@@ -258,31 +258,21 @@ export default function App() {
         userRole={userRole}
         currentUser={currentUser}
         onLogout={handleLogout}
-        onToggleRole={() => {
-          const next = userRole === 'student' ? 'staff' : 'student';
-          setUserRole(next);
-          if (next === 'staff') {
-            const staffUser = INITIAL_USERS[1];
-            setCurrentUser(staffUser);
-            try {
-              localStorage.setItem('findsync_user_session', JSON.stringify(staffUser));
-            } catch {
-              // ignore
-            }
-            setActiveTab('admin-portal');
-            showNotificationToast('Switched to Campus Safety Staff Officer Mode (#ST-44)');
-          } else {
-            const studentUser = INITIAL_USERS[0];
-            setCurrentUser(studentUser);
-            try {
-              localStorage.setItem('findsync_user_session', JSON.stringify(studentUser));
-            } catch {
-              // ignore
-            }
-            setActiveTab('home');
-            showNotificationToast('Switched to Maya Lin (Student / Finder View)');
-          }
-        }}
+        onToggleRole={
+          currentUser?.role === 'staff' || currentUser?.role === 'admin'
+            ? () => {
+                const next = userRole === 'student' ? 'staff' : 'student';
+                setUserRole(next);
+                if (next === 'staff') {
+                  setActiveTab('admin-portal');
+                  showNotificationToast('Returned to Campus Safety Staff Officer Mode');
+                } else {
+                  setActiveTab('home');
+                  showNotificationToast('Previewing as Student / Finder View');
+                }
+              }
+            : undefined
+        }
       />
 
       {/* Main View Container */}

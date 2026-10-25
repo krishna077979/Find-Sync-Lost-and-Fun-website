@@ -157,27 +157,16 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     <div className="w-full flex flex-col gap-6">
       {/* Role Restriction Banner for Students */}
       {currentUser?.role === 'student' && (
-        <div className="p-4 rounded-2xl bg-[#ffdbcf] border border-[#fe8357]/60 text-[#390c00] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-start gap-2.5">
-            <span className="material-symbols-outlined text-[#a23e18] text-xl shrink-0 mt-0.5">security</span>
-            <div>
-              <h4 className="text-xs font-bold text-[#a23e18] uppercase tracking-wider">
-                Restricted Officer Mode Preview
-              </h4>
-              <p className="text-xs text-[#390c00] mt-0.5">
-                You are currently signed in as <strong>{currentUser.name} (Student)</strong>. Administrator actions, custody bin unlock, and claim adjudication are restricted to authorized Campus Safety personnel.
-              </p>
-            </div>
+        <div className="p-4 rounded-2xl bg-[#ffdbcf] border border-[#fe8357]/60 text-[#390c00] flex items-start gap-2.5 shadow-xs">
+          <span className="material-symbols-outlined text-[#a23e18] text-xl shrink-0 mt-0.5">security</span>
+          <div>
+            <h4 className="text-xs font-bold text-[#a23e18] uppercase tracking-wider">
+              Restricted Officer Console
+            </h4>
+            <p className="text-xs text-[#390c00] mt-0.5">
+              You are currently signed in as <strong>{currentUser.name} (Student)</strong>. Administrator actions, custody bin unlock, and claim adjudication are restricted to authorized Campus Safety personnel.
+            </p>
           </div>
-          {onSwitchToStaff && (
-            <button
-              type="button"
-              onClick={onSwitchToStaff}
-              className="px-4 py-2 rounded-xl bg-[#012d1d] text-white text-xs font-bold hover:bg-[#1b4332] shrink-0 cursor-pointer shadow-xs"
-            >
-              Switch to Officer Ramirez (#ST-44)
-            </button>
-          )}
         </div>
       )}
 

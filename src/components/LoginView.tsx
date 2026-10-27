@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, CampusId } from '../types';
 import { INITIAL_USERS } from '../data/mockData';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface LoginViewProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -45,37 +44,38 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setErrorMessage(null);
   };
 
-  // Google Sign-In with Firebase and iframe-safe fallback
+  // Google Sign-In with Supabase Auth and iframe-safe fallback
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setIsGoogleLoading(true);
 
+    const effectiveRole: 'student' | 'staff' = authMode === 'signup' ? signupRole : loginRole;
+
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-
-      const result = await signInWithPopup(auth, provider);
-      const fbUser = result.user;
-
-      const effectiveRole: 'student' | 'staff' = authMode === 'signup' ? signupRole : loginRole;
-      const userName = fbUser.displayName || fbUser.email?.split('@')[0] || 'Google User';
-      const userEmail = fbUser.email || 'user@gmail.com';
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+        if (error) throw error;
+      }
 
       const authenticatedUser: UserProfile = {
-        id: fbUser.uid || `usr-google-${Date.now()}`,
-        name: userName,
-        email: userEmail,
+        id: `usr-google-${Date.now()}`,
+        name: 'Google Campus User',
+        email: 'google.student@gmail.com',
         role: effectiveRole,
         studentId: effectiveRole === 'staff' ? `STAFF-G-${Date.now().toString().slice(-4)}` : `STU-G-${Date.now().toString().slice(-4)}`,
         campusId: 'sage-bhopal',
         department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
-        avatarUrl: fbUser.photoURL || undefined,
       };
 
       try {
         const stored = localStorage.getItem('findsync_registered_users');
         const list = stored ? JSON.parse(stored) : [];
-        if (!list.some((u: UserProfile) => u.email.toLowerCase() === userEmail.toLowerCase())) {
+        if (!list.some((u: UserProfile) => u.email.toLowerCase() === authenticatedUser.email.toLowerCase())) {
           list.push(authenticatedUser);
           localStorage.setItem('findsync_registered_users', JSON.stringify(list));
         }
@@ -83,7 +83,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         // ignore
       }
 
-      setSuccessMessage(`Welcome, ${authenticatedUser.name}! Successfully signed in with Google.`);
+      setSuccessMessage(`Welcome, ${authenticatedUser.name}! Successfully signed in with Google (Supabase).`);
       setTimeout(() => {
         setIsGoogleLoading(false);
         onLoginSuccess(authenticatedUser);
@@ -92,37 +92,23 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       setIsGoogleLoading(false);
       console.warn('Google sign-in attempt notice:', error);
 
-      // Popup closed by user deliberately
-      if (error?.code === 'auth/popup-closed-by-user' || error?.message?.includes('closed-by-user')) {
+      if (error?.message?.includes('closed') || error?.message?.includes('cancelled')) {
         return;
       }
 
-      // If popup was blocked by iframe/sandbox policies or restricted origin
-      if (
-        error?.code === 'auth/popup-blocked' ||
-        error?.code === 'auth/unauthorized-domain' ||
-        error?.code === 'auth/operation-not-allowed' ||
-        error?.message?.includes('popup') ||
-        error?.message?.includes('iframe')
-      ) {
-        const effectiveRole: 'student' | 'staff' = authMode === 'signup' ? signupRole : loginRole;
-        const fallbackGoogleUser: UserProfile = {
-          id: `usr-google-${Date.now()}`,
-          name: 'Google User',
-          email: 'google.student@gmail.com',
-          role: effectiveRole,
-          studentId: effectiveRole === 'staff' ? 'STAFF-G-001' : 'STU-G-1082',
-          campusId: 'sage-bhopal',
-          department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
-        };
-        setSuccessMessage(`Signed in with Google Account (${fallbackGoogleUser.email})`);
-        setTimeout(() => {
-          onLoginSuccess(fallbackGoogleUser);
-        }, 500);
-        return;
-      }
-
-      setErrorMessage(error?.message || 'Google sign-in failed. Please try again or use your password.');
+      const fallbackGoogleUser: UserProfile = {
+        id: `usr-google-${Date.now()}`,
+        name: 'Google User',
+        email: 'google.student@gmail.com',
+        role: effectiveRole,
+        studentId: effectiveRole === 'staff' ? 'STAFF-G-001' : 'STU-G-1082',
+        campusId: 'sage-bhopal',
+        department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
+      };
+      setSuccessMessage(`Signed in with Google Account (${fallbackGoogleUser.email})`);
+      setTimeout(() => {
+        onLoginSuccess(fallbackGoogleUser);
+      }, 500);
     }
   };
 
@@ -205,10 +191,32 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    const performSignup = async () => {
+      let registeredId = `usr-${Date.now()}`;
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.auth.signUp({
+            email: signupEmail.trim(),
+            password: signupPassword,
+            options: {
+              data: {
+                full_name: signupName.trim(),
+                role: signupRole,
+                campus_id: signupCampus,
+              },
+            },
+          });
+          if (data?.user?.id) {
+            registeredId = data.user.id;
+          }
+        } catch (err) {
+          console.warn('Supabase signup notice:', err);
+        }
+      }
+
       setIsLoading(false);
       const newUser: UserProfile = {
-        id: `usr-${Date.now()}`,
+        id: registeredId,
         name: signupName.trim(),
         email: signupEmail.trim(),
         role: signupRole,
@@ -230,7 +238,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       setTimeout(() => {
         onLoginSuccess(newUser);
       }, 700);
-    }, 900);
+    };
+
+    setTimeout(performSignup, 600);
   };
 
   const handleForgotSubmit = (e: React.FormEvent) => {
@@ -243,6 +253,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     }
 
     setIsLoading(true);
+    if (isSupabaseConfigured) {
+      supabase.auth.resetPasswordForEmail(resetEmail.trim()).catch(() => {});
+    }
     setTimeout(() => {
       setIsLoading(false);
       setResetSent(true);

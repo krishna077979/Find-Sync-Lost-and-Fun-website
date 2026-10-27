@@ -16,15 +16,15 @@ import { AuthModal } from './components/AuthModal';
 import { HelpSupportModal } from './components/HelpSupportModal';
 import { TermsPrivacyModal } from './components/TermsPrivacyModal';
 import { LoginView } from './components/LoginView';
-import { testConnection } from './lib/firebase';
+import { testSupabaseConnection } from './lib/supabase';
 import {
-  seedInitialItemsIfEmpty,
-  subscribeToItems,
-  saveItemToFirestore,
-  updateItemInFirestore,
-  saveClaimToFirestore,
-  subscribeToClaims,
-} from './services/itemsService';
+  seedInitialSupabaseDataIfEmpty,
+  subscribeToSupabaseItems,
+  saveItemToSupabase,
+  updateItemInSupabase,
+  saveClaimToSupabase,
+  subscribeToSupabaseClaims,
+} from './services/supabaseService';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
@@ -67,16 +67,16 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Initialize Firestore connection and real-time listeners on mount
+  // Initialize Supabase connection and real-time listeners on mount
   useEffect(() => {
-    testConnection();
-    seedInitialItemsIfEmpty();
+    testSupabaseConnection();
+    seedInitialSupabaseDataIfEmpty();
 
-    const unsubItems = subscribeToItems((updatedItems) => {
+    const unsubItems = subscribeToSupabaseItems((updatedItems) => {
       setItems(updatedItems);
     });
 
-    const unsubClaims = subscribeToClaims((updatedClaim) => {
+    const unsubClaims = subscribeToSupabaseClaims((updatedClaim) => {
       setClaimTracking(updatedClaim);
     });
 
@@ -122,13 +122,13 @@ export default function App() {
   const handleReportLostCreated = async (newItem: Item) => {
     setItems((prev) => [newItem, ...prev]);
     showNotificationToast(`Lost report ${newItem.reportCode} created & broadcasting to campus matching engine.`);
-    await saveItemToFirestore(newItem);
+    await saveItemToSupabase(newItem);
   };
 
   const handleReportFoundCreated = async (newItem: Item) => {
     setItems((prev) => [newItem, ...prev]);
     showNotificationToast(`Found item ${newItem.reportCode} logged into ${newItem.binNumber}. Match scan initiated.`);
-    await saveItemToFirestore(newItem);
+    await saveItemToSupabase(newItem);
   };
 
   const handleSubmitClaimSuccess = async (claimId: string) => {
@@ -144,7 +144,7 @@ export default function App() {
       status: 'claim_submitted',
     }));
     showNotificationToast(`Claim ${claimId} transmitted to Officer Ramirez at Student Union Desk Counter #2.`);
-    await saveClaimToFirestore(updatedClaim);
+    await saveClaimToSupabase(updatedClaim);
   };
 
   const handleApproveClaimByStaff = async () => {
@@ -156,7 +156,7 @@ export default function App() {
     };
     setClaimTracking(updatedClaim);
     showNotificationToast('Officer Ramirez approved ID and released headphones for pickup.');
-    await saveClaimToFirestore(updatedClaim);
+    await saveClaimToSupabase(updatedClaim);
   };
 
   const handleMarkAllNotificationsRead = () => {

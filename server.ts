@@ -430,6 +430,78 @@ Provide a concise 1-sentence verification summary and an integer confidence scor
     ]);
   });
 
+  // Dedicated OAuth popup callback endpoint
+  app.get(['/auth/callback', '/auth/callback/'], (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FindSync - Completing Google Sign In</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #ecfef1;
+      color: #101f17;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 24px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #d5e7da;
+      border-top-color: #012d1d;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h2 { font-size: 19px; margin: 0 0 8px; color: #012d1d; font-weight: 700; }
+    p { font-size: 13px; color: #414844; margin: 0; max-width: 320px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <h2>Verifying Google Credentials</h2>
+  <p>Authenticating your campus profile with FindSync. This window will close automatically...</p>
+  <script>
+    (function() {
+      try {
+        var payload = {
+          type: 'FINDSYNC_GOOGLE_AUTH_CALLBACK',
+          hash: window.location.hash || '',
+          search: window.location.search || '',
+          href: window.location.href,
+          origin: window.location.origin
+        };
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, '*');
+          setTimeout(function() {
+            window.close();
+          }, 350);
+        } else {
+          // If navigated directly, redirect to main app route with query/hash
+          window.location.replace('/' + (window.location.hash || window.location.search));
+        }
+      } catch (err) {
+        console.error('FindSync OAuth callback error:', err);
+      }
+    })();
+  </script>
+</body>
+</html>`);
+  });
+
   // 11. Vite development middleware or static production serve
   if (process.env.NODE_ENV === 'production' && fs.existsSync(path.resolve(__dirname, 'dist'))) {
     app.use(express.static(path.resolve(__dirname, 'dist')));

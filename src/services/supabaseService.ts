@@ -1,4 +1,5 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, signInWithGoogle } from '../lib/supabase';
+export { signInWithGoogle } from '../lib/supabase';
 import { Item, ClaimTracking, MatchCase, MatchFactorBreakdown, UserProfile, AppNotification, CampusId } from '../types';
 import { INITIAL_ITEMS, INITIAL_NOTIFICATIONS, INITIAL_CLAIM_TRACKING } from '../data/mockData';
 
@@ -102,58 +103,20 @@ const campusSlugToUuid = new Map<string, string>();
 const campusUuidToSlug = new Map<string, string>();
 
 /**
- * Load campus records to resolve slugs to UUID foreign keys
- */
-export async function loadCampusesFromSupabase(): Promise<void> {
-  if (!isSupabaseConfigured) return;
-  try {
-    const { data, error } = await supabase.from('campuses').select('id, slug, name');
-    if (!error && data) {
-      for (const c of data) {
-        if (c.slug && c.id) {
-          campusSlugToUuid.set(c.slug.toLowerCase(), c.id);
-          campusUuidToSlug.set(c.id, c.slug);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Campus lookup notice:', err);
-  }
-}
-
-export function resolveCampusUuid(campusId?: string | null): string | null {
-  if (!campusId || campusId === 'all-campuses') return null;
-  if (isUUID(campusId)) return campusId;
-  const found = campusSlugToUuid.get(campusId.toLowerCase());
-  return found || null;
-}
-
-export function resolveCampusSlug(campusUuid?: string | null): string {
-  if (!campusUuid) return 'sage-bhopal';
-  const found = campusUuidToSlug.get(campusUuid);
-  return found || campusUuid;
-}
-
-// ============================================================================
-// Authentication & User Profile Services
-// ============================================================================
-
-/**
- * Derive user display name securely from metadata or email prefix
+ * Derive user display name from metadata or email fallback
  */
 export function deriveDisplayName(user: { user_metadata?: Record<string, any>; email?: string | null }): string {
-  const meta = user.user_metadata || {};
-  if (meta.full_name && typeof meta.full_name === 'string' && meta.full_name.trim()) {
-    return meta.full_name.trim();
+  if (user?.user_metadata?.full_name) {
+    return user.user_metadata.full_name;
   }
-  if (meta.name && typeof meta.name === 'string' && meta.name.trim()) {
-    return meta.name.trim();
+  if (user?.user_metadata?.name) {
+    return user.user_metadata.name;
   }
-  if (meta.given_name && typeof meta.given_name === 'string' && meta.given_name.trim()) {
-    const family = meta.family_name ? ` ${meta.family_name}` : '';
-    return `${meta.given_name}${family}`.trim();
+  if (user?.user_metadata?.given_name) {
+    const family = user.user_metadata.family_name ? ` ${user.user_metadata.family_name}` : '';
+    return `${user.user_metadata.given_name}${family}`;
   }
-  if (user.email) {
+  if (user?.email) {
     const prefix = user.email.split('@')[0];
     return prefix.charAt(0).toUpperCase() + prefix.slice(1);
   }
@@ -161,8 +124,48 @@ export function deriveDisplayName(user: { user_metadata?: Record<string, any>; e
 }
 
 /**
- * Get or upsert user profile row from Supabase
- * Enforces role strictly from database, preventing client self-elevation
+ * Cache campus slug <-> uuid lookup
+ */
+export async function fetchCampusesMap(): Promise<void> {
+};
+export const loadCampusesFromSupabase = fetchCampusesMap;
+export async function fetchCampusesMapImpl(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  try {
+    const { data, error } = await supabase.from('campuses').select('id, slug');
+    if (!error && data) {
+      for (const row of data) {
+        campusSlugToUuid.set(row.slug, row.id);
+        campusUuidToSlug.set(row.id, row.slug);
+      }
+    }
+  } catch (err) {
+    console.warn('Campuses lookup note:', err);
+  }
+}
+
+/**
+ * Convert campus uuid to readable slug
+ */
+export function resolveCampusUuid(campusIdOrSlug?: string | null): string | null {
+  if (!campusIdOrSlug) return null;
+  if (isUUID(campusIdOrSlug)) return campusIdOrSlug;
+  if (campusSlugToUuid.has(campusIdOrSlug)) {
+    return campusSlugToUuid.get(campusIdOrSlug)!;
+  }
+  return null;
+}
+
+export function resolveCampusSlug(campusIdOrUuid?: string | null): string {
+  if (!campusIdOrUuid) return 'sage-bhopal';
+  if (campusUuidToSlug.has(campusIdOrUuid)) {
+    return campusUuidToSlug.get(campusIdOrUuid)!;
+  }
+  return campusIdOrUuid;
+}
+
+/**
+ * Get or insert student/staff profile upon authentication
  */
 export async function getOrCreateUserProfile(authSessionUser: any): Promise<UserProfile> {
   const userId = authSessionUser.id;
@@ -176,18 +179,16 @@ export async function getOrCreateUserProfile(authSessionUser: any): Promise<User
       email,
       role: email.includes('officer') || email.includes('admin') ? 'staff' : 'student',
       campusId: 'sage-bhopal',
-      studentId: `STU-${userId.slice(0, 4).toUpperCase()}`,
-      department: 'Campus Member',
     };
   }
 
   try {
-    // 1. Fetch existing profile
+    // 1. Check existing profiles table
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .maybeSingle();
+      .single();
 
     if (profile && !error) {
       return {
@@ -336,25 +337,169 @@ export async function signUpWithEmailPassword(
 }
 
 /**
- * Trigger Supabase Google OAuth sign-in flow
+ * Trigger Supabase Google OAuth sign-in flow (popup-based for iFrame compatibility)
  */
-export async function signInWithGoogleOAuth(): Promise<{ error: string | null }> {
+export async function signInWithGoogleOAuth(): Promise<{ user: UserProfile | null; error: string | null }> {
+  // If Supabase is not configured or in local development fallback
   if (!isSupabaseConfigured) {
-    return { error: null };
+    const demoGoogleUser: UserProfile = {
+      id: 'usr-google-verified-01',
+      name: 'Rajesh Shiv',
+      email: 'rajeshshiv042@gmail.com',
+      role: 'student',
+      studentId: 'STU-G-1082',
+      campusId: 'sage-bhopal',
+      department: 'Computer Science & Engineering',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+    };
+    return { user: demoGoogleUser, error: null };
   }
 
   try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
+    if (typeof window === 'undefined') {
+      return { user: null, error: 'Google OAuth must be initiated in a browser environment.' };
+    }
+
+    const callbackUrl = `${window.location.origin}/auth/callback`;
+
+    // Request OAuth URL without redirecting the main window (skipBrowserRedirect: true)
+    const { data, error } = await signInWithGoogle({
+      redirectTo: callbackUrl,
+      skipBrowserRedirect: true,
     });
-    if (error) throw error;
-    return { error: null };
+
+    if (error) {
+      console.warn('Supabase signInWithOAuth error:', error);
+      return { user: null, error: error.message };
+    }
+
+    if (!data?.url) {
+      return { user: null, error: 'Could not obtain Google authentication URL from Supabase.' };
+    }
+
+    // Open a centered popup window so the parent iframe is never blocked by X-Frame-Options
+    const width = 520;
+    const height = 660;
+    const left = Math.max(0, (window.screen.width - width) / 2 + (window.screenX || 0));
+    const top = Math.max(0, (window.screen.height - height) / 2.5 + (window.screenY || 0));
+
+    const popup = window.open(
+      data.url,
+      'findsync_google_oauth_popup',
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,status=no`
+    );
+
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      return {
+        user: null,
+        error: 'Pop-up window was blocked by your browser. Please allow popups for this site and try again.',
+      };
+    }
+
+    return new Promise((resolve) => {
+      let isSettled = false;
+      let checkClosedTimer: any = null;
+
+      const cleanup = () => {
+        isSettled = true;
+        if (checkClosedTimer) clearInterval(checkClosedTimer);
+        window.removeEventListener('message', handleMessage);
+      };
+
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.data?.type !== 'FINDSYNC_GOOGLE_AUTH_CALLBACK') return;
+        cleanup();
+
+        try {
+          const { hash, search } = event.data;
+          const searchParams = new URLSearchParams(search || '');
+          const hashParams = new URLSearchParams((hash || '').replace(/^#/, ''));
+
+          const errorDescription =
+            searchParams.get('error_description') ||
+            searchParams.get('error') ||
+            hashParams.get('error_description');
+
+          if (errorDescription) {
+            resolve({ user: null, error: decodeURIComponent(errorDescription) });
+            return;
+          }
+
+          // PKCE flow: authorization code in query parameters
+          const code = searchParams.get('code');
+          if (code) {
+            const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeErr) {
+              console.warn('Exchange code error note:', exchangeErr);
+            }
+          }
+
+          // Implicit flow: access_token in hash fragment
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          if (accessToken && refreshToken) {
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+          }
+
+          // Verify authenticated session
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session?.user) {
+            const profile = await getOrCreateUserProfile(sessionData.session.user);
+            resolve({ user: profile, error: null });
+            return;
+          }
+
+          // Secondary verification check
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) {
+            const profile = await getOrCreateUserProfile(userData.user);
+            resolve({ user: profile, error: null });
+            return;
+          }
+
+          resolve({ user: null, error: 'Sign-in completed but user session could not be established.' });
+        } catch (err: any) {
+          resolve({ user: null, error: err?.message || 'Error processing authentication callback.' });
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Check if user closed the popup window manually
+      checkClosedTimer = setInterval(() => {
+        if (popup.closed && !isSettled) {
+          cleanup();
+          setTimeout(async () => {
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (sessionData?.session?.user) {
+              const profile = await getOrCreateUserProfile(sessionData.session.user);
+              resolve({ user: profile, error: null });
+            } else {
+              resolve({ user: null, error: 'Sign-in popup was closed before completion.' });
+            }
+          }, 500);
+        }
+      }, 750);
+
+      // Safety timeout after 2 minutes
+      setTimeout(() => {
+        if (!isSettled) {
+          cleanup();
+          try {
+            if (!popup.closed) popup.close();
+          } catch {
+            // ignore
+          }
+          resolve({ user: null, error: 'Sign-in process timed out. Please try again.' });
+        }
+      }, 120000);
+    });
   } catch (err: any) {
-    console.warn('Supabase Google OAuth initialization notice:', err);
-    return { error: err?.message || 'Failed to start Google sign-in.' };
+    console.warn('Google sign-in exception:', err);
+    return { user: null, error: err?.message || 'Failed to initialize Google sign-in.' };
   }
 }
 

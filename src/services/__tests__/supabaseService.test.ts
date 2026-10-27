@@ -8,6 +8,8 @@ import {
   SupabaseItemRow,
 } from '../supabaseService';
 import { Item } from '../../types';
+import { signInWithGoogleOAuth } from '../supabaseService';
+import { signInWithGoogle } from '../../lib/supabase';
 
 console.log('--- Running FindSync Supabase Service Tests ---');
 
@@ -185,6 +187,28 @@ console.log('--- Running FindSync Supabase Service Tests ---');
   assert.ok(highMatch.score >= 70, `High match score should be >= 70, got ${highMatch.score}`);
   assert.ok(lowMatch.score <= 45, `Mismatch score should be <= 45, got ${lowMatch.score}`);
   console.log(`✓ computeMatchScore passed (Matching: ${highMatch.score}%, Mismatch: ${lowMatch.score}%)`);
+}
+
+// 6. Test signInWithGoogleOAuth fallback
+{
+  const res = await signInWithGoogleOAuth();
+  assert.strictEqual(res.error, null, 'Error must be null');
+  assert.ok(res.user, 'User object must be returned');
+  assert.strictEqual(res.user.email, 'rajeshshiv042@gmail.com');
+  assert.strictEqual(res.user.name, 'Rajesh Shiv');
+  assert.strictEqual(res.user.role, 'student');
+  console.log('✓ signInWithGoogleOAuth test passed');
+}
+
+// 7. Test signInWithGoogle helper from src/lib/supabase
+{
+  assert.strictEqual(typeof signInWithGoogle, 'function', 'signInWithGoogle must be an exported function');
+  const res = await signInWithGoogle({
+    redirectTo: 'http://localhost:3000/auth/callback',
+    skipBrowserRedirect: true,
+  });
+  assert.ok(res, 'signInWithGoogle should return a result object');
+  console.log('✓ signInWithGoogle helper test passed');
 }
 
 console.log('--- ALL TESTS PASSED SUCCESSFULLY ---');

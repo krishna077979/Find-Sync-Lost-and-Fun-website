@@ -35,10 +35,42 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: typeof window !== 'undefined',
+    storageKey: 'findsync_supabase_auth_token',
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     flowType: 'pkce',
   },
 });
+
+export interface SignInWithGoogleOptions {
+  redirectTo?: string;
+  queryParams?: Record<string, string>;
+  scopes?: string;
+  skipBrowserRedirect?: boolean;
+}
+
+/**
+ * Initiates Google OAuth sign-in via Supabase with persistent session handling.
+ * Directs the provider to redirect back to the /auth/callback route upon completion.
+ */
+export async function signInWithGoogle(options?: SignInWithGoogleOptions) {
+  // Determine the appropriate redirect URL, prioritizing the dedicated /auth/callback route
+  const defaultRedirect =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/callback`
+      : 'http://localhost:3000/auth/callback';
+
+  const redirectTo = options?.redirectTo || defaultRedirect;
+
+  return await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo,
+      queryParams: options?.queryParams,
+      scopes: options?.scopes,
+      skipBrowserRedirect: options?.skipBrowserRedirect,
+    },
+  });
+}
 
 /**
  * Health check test for Supabase connection

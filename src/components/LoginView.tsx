@@ -54,30 +54,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setIsGoogleLoading(true);
-
     try {
-      const { error } = await signInWithGoogleOAuth();
+      const { user, error } = await signInWithGoogleOAuth();
+      setIsGoogleLoading(false);
       if (error) {
-        if (!isSupabaseConfigured) {
-          // Fallback demo user if running in disconnected preview
-          const fallbackUser: UserProfile = {
-            id: `usr-google-${Date.now()}`,
-            name: 'Google Campus Member',
-            email: 'google.student@gmail.com',
-            role: 'student',
-            studentId: 'STU-G-1082',
-            campusId: 'sage-bhopal',
-            department: 'Undergraduate Member',
-          };
-          setIsGoogleLoading(false);
-          setSuccessMessage(`Signed in as ${fallbackUser.name}`);
-          onLoginSuccess(fallbackUser);
-          return;
-        }
-        setIsGoogleLoading(false);
         setErrorMessage(error);
+        return;
       }
-      // If live Supabase, browser will redirect or handle session via onAuthStateChange
+      if (user) {
+        setSuccessMessage(`Signed in as ${user.name}`);
+        onLoginSuccess(user);
+      }
     } catch (err: any) {
       setIsGoogleLoading(false);
       setErrorMessage(err?.message || 'Google sign-in encountered an issue.');

@@ -41,16 +41,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleGoogleSignInModal = async () => {
     setErrorMessage(null);
     setIsLoading(true);
-    const { error } = await signInWithGoogleOAuth();
-    setIsLoading(false);
-    if (error) {
-      setErrorMessage(error);
-    } else {
-      setFeedbackMsg('Redirecting to Google Sign-In...');
-      setTimeout(() => {
-        setFeedbackMsg(null);
-        onClose();
-      }, 1000);
+    try {
+      const { user, error } = await signInWithGoogleOAuth();
+      setIsLoading(false);
+      if (error) {
+        setErrorMessage(error);
+      } else if (user) {
+        setFeedbackMsg(`Signed in as ${user.name}`);
+        onSwitchUser(user);
+        setTimeout(() => {
+          setFeedbackMsg(null);
+          onClose();
+        }, 700);
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err?.message || 'Google sign-in encountered an issue.');
     }
   };
 

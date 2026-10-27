@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Item, ClaimTracking, ViewTab } from '../types';
+import { Item, ClaimTracking, ViewTab, UserProfile } from '../types';
 
 interface FinderClaim {
   id: string;
@@ -23,6 +23,7 @@ interface MyItemsViewProps {
   onNavigateToMatch: (caseId?: string) => void;
   onOpenReportFound: () => void;
   onOpenCampusDesk: () => void;
+  currentUser?: UserProfile | null;
 }
 
 export const MyItemsView: React.FC<MyItemsViewProps> = ({
@@ -32,6 +33,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
   onNavigateToMatch,
   onOpenReportFound,
   onOpenCampusDesk,
+  currentUser,
 }) => {
   const [selectedSubTab, setSelectedSubTab] = useState<
     'all' | 'lost' | 'found' | 'matches' | 'claims' | 'reunited'
@@ -64,8 +66,21 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
   // Return receipt confirmation modal state
   const [receiptClaim, setReceiptClaim] = useState<FinderClaim | null>(null);
 
-  // Filter items belonging to user Maya Lin or found by user
-  const userItems = items.filter((i) => i.ownerName === 'Maya Lin' || i.type === 'found');
+  // Filter items belonging to authenticated user or reported by user
+  const userItems = useMemo(() => {
+    if (!currentUser) return [];
+    const filtered = items.filter(
+      (i) =>
+        i.ownerId === currentUser.id ||
+        (currentUser.name && i.ownerName?.toLowerCase() === currentUser.name.toLowerCase()) ||
+        (currentUser.role === 'staff' && i.type === 'found')
+    );
+    // If no direct ID match in local preview fallback, include current items
+    if (filtered.length === 0 && items.length > 0) {
+      return items.filter((i) => i.ownerId === currentUser.id || i.type === 'lost');
+    }
+    return filtered;
+  }, [items, currentUser]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Item, ViewTab, CampusId, FacilitySector } from '../types';
 import { CAMPUS_SITES } from '../data/mockData';
+import { LeafletRealtimeMap } from './LeafletRealtimeMap';
 
 interface ExploreViewProps {
   items: Item[];
@@ -26,7 +27,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const [selectedSector, setSelectedSector] = useState<'all' | FacilitySector>('all');
   const [selectedFacilityChip, setSelectedFacilityChip] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'recent' | 'confidence' | 'location' | 'category'>('recent');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDetailItem, setSelectedDetailItem] = useState<Item | null>(null);
 
@@ -796,6 +797,17 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                   >
                     <span className="material-symbols-outlined text-lg">view_list</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('map')}
+                    className={`px-2 py-1 rounded cursor-pointer flex items-center gap-1 ${
+                      viewMode === 'map' ? 'bg-[#012d1d] text-white shadow-xs font-bold' : 'text-[#414844] hover:text-[#012d1d]'
+                    }`}
+                    title="Leaflet Real-time Map Radar"
+                  >
+                    <span className="material-symbols-outlined text-base">radar</span>
+                    <span className="text-[11px] font-bold">Radar Map</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -829,7 +841,28 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               </div>
             </div>
 
-            {/* Responsive Items Grid / List */}
+            {/* Real-time Leaflet Map Mode */}
+            {viewMode === 'map' ? (
+              <div className="w-full bg-white p-4 rounded-xl border border-[#d5e7da] shadow-xs flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#012d1d] text-xl">radar</span>
+                    <h3 className="font-bold text-[#012d1d] text-[16px]">Leaflet Real-Time Campus Radar</h3>
+                  </div>
+                  <span className="text-xs text-[#414844]">Showing {filteredItems.length} items plotted</span>
+                </div>
+                <LeafletRealtimeMap
+                  campusId={selectedCampus === 'all-campuses' ? 'sage-bhopal' : selectedCampus}
+                  height="480px"
+                  showAllCampusAreas={true}
+                  showRecentItems={true}
+                  items={filteredItems}
+                  autoDetectLocationOnMount={false}
+                  onItemSelect={(item) => setSelectedDetailItem(item)}
+                />
+              </div>
+            ) : (
+            /* Responsive Items Grid / List */
             <div
               className={`w-full ${
                 viewMode === 'grid'
@@ -989,8 +1022,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               })}
             </div>
 
+            )}
+
             {/* Pagination Controls */}
-            {filteredItems.length > 0 && (
+            {viewMode !== 'map' && filteredItems.length > 0 && (
               <nav aria-label="Directory pagination" className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 pb-4 border-t border-[#d5e7da]">
                 <span className="text-[13px] text-[#414844]">
                   Showing <strong className="text-[#101f17]">{(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)}</strong> of <strong className="text-[#101f17]">{filteredItems.length}</strong> items

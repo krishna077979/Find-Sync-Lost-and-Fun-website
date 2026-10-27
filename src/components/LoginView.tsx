@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { UserProfile, CampusId } from '../types';
 import { INITIAL_USERS } from '../data/mockData';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured } from '../lib/supabase';
+import {
+  signInWithEmailPassword,
+  signUpWithEmailPassword,
+  signInWithGoogleOAuth,
+  requestPasswordReset,
+} from '../services/supabaseService';
 
 interface LoginViewProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -35,7 +41,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Quick fill demo user
+  // Quick fill demo user credentials for testing
   const handleSelectDemoUser = (role: 'student' | 'staff') => {
     setLoginRole(role);
     const demo = INITIAL_USERS.find((u) => u.role === role) || INITIAL_USERS[0];
@@ -44,75 +50,41 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setErrorMessage(null);
   };
 
-  // Google Sign-In with Supabase Auth and iframe-safe fallback
+  // Google Sign-In with Supabase Auth
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setIsGoogleLoading(true);
 
-    const effectiveRole: 'student' | 'staff' = authMode === 'signup' ? signupRole : loginRole;
-
     try {
-      if (isSupabaseConfigured) {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-      }
-
-      const authenticatedUser: UserProfile = {
-        id: `usr-google-${Date.now()}`,
-        name: 'Google Campus User',
-        email: 'google.student@gmail.com',
-        role: effectiveRole,
-        studentId: effectiveRole === 'staff' ? `STAFF-G-${Date.now().toString().slice(-4)}` : `STU-G-${Date.now().toString().slice(-4)}`,
-        campusId: 'sage-bhopal',
-        department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
-      };
-
-      try {
-        const stored = localStorage.getItem('findsync_registered_users');
-        const list = stored ? JSON.parse(stored) : [];
-        if (!list.some((u: UserProfile) => u.email.toLowerCase() === authenticatedUser.email.toLowerCase())) {
-          list.push(authenticatedUser);
-          localStorage.setItem('findsync_registered_users', JSON.stringify(list));
+      const { error } = await signInWithGoogleOAuth();
+      if (error) {
+        if (!isSupabaseConfigured) {
+          // Fallback demo user if running in disconnected preview
+          const fallbackUser: UserProfile = {
+            id: `usr-google-${Date.now()}`,
+            name: 'Google Campus Member',
+            email: 'google.student@gmail.com',
+            role: 'student',
+            studentId: 'STU-G-1082',
+            campusId: 'sage-bhopal',
+            department: 'Undergraduate Member',
+          };
+          setIsGoogleLoading(false);
+          setSuccessMessage(`Signed in as ${fallbackUser.name}`);
+          onLoginSuccess(fallbackUser);
+          return;
         }
-      } catch {
-        // ignore
-      }
-
-      setSuccessMessage(`Welcome, ${authenticatedUser.name}! Successfully signed in with Google (Supabase).`);
-      setTimeout(() => {
         setIsGoogleLoading(false);
-        onLoginSuccess(authenticatedUser);
-      }, 500);
-    } catch (error: any) {
-      setIsGoogleLoading(false);
-      console.warn('Google sign-in attempt notice:', error);
-
-      if (error?.message?.includes('closed') || error?.message?.includes('cancelled')) {
-        return;
+        setErrorMessage(error);
       }
-
-      const fallbackGoogleUser: UserProfile = {
-        id: `usr-google-${Date.now()}`,
-        name: 'Google User',
-        email: 'google.student@gmail.com',
-        role: effectiveRole,
-        studentId: effectiveRole === 'staff' ? 'STAFF-G-001' : 'STU-G-1082',
-        campusId: 'sage-bhopal',
-        department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
-      };
-      setSuccessMessage(`Signed in with Google Account (${fallbackGoogleUser.email})`);
-      setTimeout(() => {
-        onLoginSuccess(fallbackGoogleUser);
-      }, 500);
+      // If live Supabase, browser will redirect or handle session via onAuthStateChange
+    } catch (err: any) {
+      setIsGoogleLoading(false);
+      setErrorMessage(err?.message || 'Google sign-in encountered an issue.');
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -132,43 +104,33 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      let registeredUsers: UserProfile[] = [];
-      try {
-        const stored = localStorage.getItem('findsync_registered_users');
-        if (stored) registeredUsers = JSON.parse(stored);
-      } catch {
-        // ignore
+    const emailToUse = trimmed.includes('@') ? trimmed : `${trimmed}@findsync.campus`;
+    const { user, error } = await signInWithEmailPassword(emailToUse, password);
+    setIsLoading(false);
+
+    if (error) {
+      // In local preview fallback, match demo user
+      if (!isSupabaseConfigured) {
+        const demo = INITIAL_USERS.find(
+          (u) => u.email.toLowerCase() === trimmed.toLowerCase() || u.name.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (demo) {
+          setSuccessMessage(`Welcome back, ${demo.name}!`);
+          onLoginSuccess(demo);
+          return;
+        }
       }
-      const allKnownUsers = [...registeredUsers, ...INITIAL_USERS];
+      setErrorMessage(error);
+      return;
+    }
 
-      const matched = allKnownUsers.find(
-        (u) => u.email.toLowerCase() === trimmed.toLowerCase() || u.name.toLowerCase() === trimmed.toLowerCase()
-      );
-
-      const effectiveRole: 'student' | 'staff' = loginRole;
-
-      const authenticatedUser: UserProfile = matched
-        ? { ...matched, role: effectiveRole }
-        : {
-            id: `usr-${Date.now()}`,
-            name: trimmed.includes('@') ? trimmed.split('@')[0] : trimmed,
-            email: trimmed.includes('@') ? trimmed : `${trimmed}@gmail.com`,
-            role: effectiveRole,
-            studentId: effectiveRole === 'staff' ? 'STAFF-AUTH-01' : `STU-${Math.floor(1000 + Math.random() * 9000)}`,
-            campusId: 'sage-bhopal',
-            department: effectiveRole === 'staff' ? 'Campus Safety Desk' : 'Undergraduate Member',
-          };
-
-      setSuccessMessage(`Welcome back, ${authenticatedUser.name}!`);
-      setTimeout(() => {
-        onLoginSuccess(authenticatedUser);
-      }, 600);
-    }, 800);
+    if (user) {
+      setSuccessMessage(`Welcome back, ${user.name}!`);
+      onLoginSuccess(user);
+    }
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -191,59 +153,31 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
-    const performSignup = async () => {
-      let registeredId = `usr-${Date.now()}`;
-      if (isSupabaseConfigured) {
-        try {
-          const { data } = await supabase.auth.signUp({
-            email: signupEmail.trim(),
-            password: signupPassword,
-            options: {
-              data: {
-                full_name: signupName.trim(),
-                role: signupRole,
-                campus_id: signupCampus,
-              },
-            },
-          });
-          if (data?.user?.id) {
-            registeredId = data.user.id;
-          }
-        } catch (err) {
-          console.warn('Supabase signup notice:', err);
-        }
-      }
+    const { user, error, confirmationRequired } = await signUpWithEmailPassword(
+      signupEmail.trim(),
+      signupPassword,
+      signupName.trim(),
+      signupCampus
+    );
+    setIsLoading(false);
 
-      setIsLoading(false);
-      const newUser: UserProfile = {
-        id: registeredId,
-        name: signupName.trim(),
-        email: signupEmail.trim(),
-        role: signupRole,
-        studentId: signupRole === 'staff' ? `STAFF-${Date.now().toString().slice(-4)}` : `STU-${Date.now().toString().slice(-4)}`,
-        campusId: signupCampus,
-        department: signupRole === 'staff' ? 'Campus Safety Department' : 'University Studies',
-      };
+    if (error) {
+      setErrorMessage(error);
+      return;
+    }
 
-      try {
-        const stored = localStorage.getItem('findsync_registered_users');
-        const list = stored ? JSON.parse(stored) : [];
-        list.push(newUser);
-        localStorage.setItem('findsync_registered_users', JSON.stringify(list));
-      } catch {
-        // ignore
-      }
+    if (confirmationRequired) {
+      setSuccessMessage('Account registered! Please check your email inbox to verify your account.');
+      return;
+    }
 
-      setSuccessMessage(`Account created successfully for ${newUser.name}!`);
-      setTimeout(() => {
-        onLoginSuccess(newUser);
-      }, 700);
-    };
-
-    setTimeout(performSignup, 600);
+    if (user) {
+      setSuccessMessage(`Account created successfully for ${user.name}!`);
+      onLoginSuccess(user);
+    }
   };
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -253,13 +187,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     }
 
     setIsLoading(true);
-    if (isSupabaseConfigured) {
-      supabase.auth.resetPasswordForEmail(resetEmail.trim()).catch(() => {});
-    }
-    setTimeout(() => {
-      setIsLoading(false);
+    const { success, error } = await requestPasswordReset(resetEmail.trim());
+    setIsLoading(false);
+
+    if (error) {
+      setErrorMessage(error);
+    } else if (success) {
       setResetSent(true);
-    }, 800);
+    }
   };
 
   return (

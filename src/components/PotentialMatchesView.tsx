@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MatchCase, ViewTab } from '../types';
+import { apiClient, MatchApiResult } from '../services/apiClient';
 
 interface PotentialMatchesViewProps {
   matchCase: MatchCase;
@@ -12,6 +13,30 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
   onNavigateToTab,
   onSubmitClaimSuccess,
 }) => {
+  const [apiMatch, setApiMatch] = useState<MatchApiResult | null>(null);
+  const [isMatchCalculating, setIsMatchCalculating] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (matchCase?.lostItem && matchCase?.foundItem) {
+      setIsMatchCalculating(true);
+      apiClient
+        .calculateMatch(matchCase.lostItem, matchCase.foundItem)
+        .then((res) => {
+          if (active) {
+            setApiMatch(res);
+            setIsMatchCalculating(false);
+          }
+        })
+        .catch(() => {
+          if (active) setIsMatchCalculating(false);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [matchCase]);
+
   const [covertMarkers, setCovertMarkers] = useState(
     "Device Bluetooth name is set to 'Maya's XM4'. Inside the headphone case zipper mesh pocket there is a silver USB-C to 3.5mm coiled adapter and a lavender guitar pick."
   );
@@ -130,7 +155,8 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
     );
   }
 
-  const confidenceScore = matchCase.confidenceScore || 0;
+  const confidenceScore = apiMatch?.confidenceScore ?? matchCase.confidenceScore ?? 0;
+  const factorBreakdown = apiMatch?.factorBreakdown ?? matchCase.factorBreakdown;
   const strokeDashoffsetValue = 314.15 * (1 - confidenceScore / 100);
 
   return (
@@ -396,10 +422,11 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
             <h2 className="text-[22px] text-[#012d1d] font-bold">Match Breakdown &amp; Analysis</h2>
           </div>
           <div className="hidden sm:flex items-center gap-2 text-[13px] font-semibold text-[#414844]">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#1b4332]" />
-            <span>AI Model v4.2</span>
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#1b4332] animate-pulse" />
+            <span>FastAPI &amp; Gemini Engine</span>
+            {isMatchCalculating && <span className="text-[11px] text-[#a23e18] font-bold">Calculating...</span>}
             <span className="mx-1">•</span>
-            <span>Updated 18 min ago</span>
+            <span>Live Analysis</span>
           </div>
         </div>
 
@@ -410,16 +437,16 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
               <span className="p-2 rounded-lg bg-[#dbede0] text-[#012d1d]">
                 <span className="material-symbols-outlined">devices_other</span>
               </span>
-              <span className="text-[18px] font-bold text-[#012d1d] tabular-nums">100%</span>
+              <span className="text-[18px] font-bold text-[#012d1d] tabular-nums">{factorBreakdown.categoryAndType}%</span>
             </div>
             <div className="mt-4 flex flex-col gap-1">
               <h3 className="text-[15px] font-bold text-[#101f17]">Category &amp; Device Type</h3>
               <p className="text-[13px] text-[#414844]">
-                Consumer Audio / Wireless Bluetooth Headset verified through photographic neural tagging.
+                {matchCase.lostItem.category} matching verified against custody catalog classification.
               </p>
             </div>
             <div className="mt-4 w-full bg-[#dbede0] h-2 rounded-full overflow-hidden">
-              <div className="bg-[#012d1d] h-full rounded-full w-full" />
+              <div className="bg-[#012d1d] h-full rounded-full transition-all duration-700" style={{ width: `${factorBreakdown.categoryAndType}%` }} />
             </div>
           </div>
 
@@ -429,16 +456,16 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
               <span className="p-2 rounded-lg bg-[#dbede0] text-[#012d1d]">
                 <span className="material-symbols-outlined">palette</span>
               </span>
-              <span className="text-[18px] font-bold text-[#012d1d] tabular-nums">90%</span>
+              <span className="text-[18px] font-bold text-[#012d1d] tabular-nums">{factorBreakdown.visualAndModel}%</span>
             </div>
             <div className="mt-4 flex flex-col gap-1">
               <h3 className="text-[15px] font-bold text-[#101f17]">Visual &amp; Model Proximity</h3>
               <p className="text-[13px] text-[#414844]">
-                Form factor, color tone, cushion contour, and headband hinges correlate with Sony WH-1000XM series.
+                Brand ({matchCase.lostItem.brand || 'Item'}), colorway ({matchCase.lostItem.colorway}), and form contour alignment.
               </p>
             </div>
             <div className="mt-4 w-full bg-[#dbede0] h-2 rounded-full overflow-hidden">
-              <div className="bg-[#012d1d] h-full rounded-full w-[90%]" />
+              <div className="bg-[#012d1d] h-full rounded-full transition-all duration-700" style={{ width: `${factorBreakdown.visualAndModel}%` }} />
             </div>
           </div>
 
@@ -448,16 +475,16 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
               <span className="p-2 rounded-lg bg-[#ffdbcf] text-[#a23e18]">
                 <span className="material-symbols-outlined">schedule</span>
               </span>
-              <span className="text-[18px] font-bold text-[#a23e18] tabular-nums">85%</span>
+              <span className="text-[18px] font-bold text-[#a23e18] tabular-nums">{factorBreakdown.timeProximity}%</span>
             </div>
             <div className="mt-4 flex flex-col gap-1">
               <h3 className="text-[15px] font-bold text-[#101f17]">Time Proximity</h3>
               <p className="text-[13px] text-[#414844]">
-                Discovered 2 hours 15 minutes after logged loss, conforming to normal campus cleaning patrol cycles.
+                Correlation between loss timestamp ({matchCase.lostItem.timeString}) and custodian custody turn-in.
               </p>
             </div>
             <div className="mt-4 w-full bg-[#dbede0] h-2 rounded-full overflow-hidden">
-              <div className="bg-[#a23e18] h-full rounded-full w-[85%]" />
+              <div className="bg-[#a23e18] h-full rounded-full transition-all duration-700" style={{ width: `${factorBreakdown.timeProximity}%` }} />
             </div>
           </div>
 
@@ -467,16 +494,16 @@ export const PotentialMatchesView: React.FC<PotentialMatchesViewProps> = ({
               <span className="p-2 rounded-lg bg-[#dbede0] text-[#012d1d]">
                 <span className="material-symbols-outlined">near_me</span>
               </span>
-              <span className="text-[18px] font-bold text-[#012d1d] tabular-nums">80%</span>
+              <span className="text-[18px] font-bold text-[#012d1d] tabular-nums">{factorBreakdown.geospatialProximity}%</span>
             </div>
             <div className="mt-4 flex flex-col gap-1">
               <h3 className="text-[15px] font-bold text-[#101f17]">Geospatial Proximity</h3>
               <p className="text-[13px] text-[#414844]">
-                Central University Library (23.1787° N, 77.4922° E) to Food Court &amp; Canteen (23.1784° N, 77.4923° E) represents a direct 140m pedestrian path across SAGE Bhopal Central Lawn.
+                Proximity across {matchCase.lostItem.locationName} and intake recovery desk.
               </p>
             </div>
             <div className="mt-4 w-full bg-[#dbede0] h-2 rounded-full overflow-hidden">
-              <div className="bg-[#012d1d] h-full rounded-full w-[80%]" />
+              <div className="bg-[#012d1d] h-full rounded-full transition-all duration-700" style={{ width: `${factorBreakdown.geospatialProximity}%` }} />
             </div>
           </div>
         </div>

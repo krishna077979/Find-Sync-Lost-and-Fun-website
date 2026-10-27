@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Item, ViewTab, CampusId } from '../types';
 import { CAMPUS_SITES, HANDOVER_STATIONS } from '../data/mockData';
+import { apiClient, SystemStats } from '../services/apiClient';
 
 interface HomeViewProps {
   items: Item[];
@@ -20,6 +21,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenAuth,
 }) => {
   const [heroSearchQuery, setHeroSearchQuery] = useState('');
+  const [stats, setStats] = useState<SystemStats | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    apiClient.getStats().then((data) => {
+      if (active) setStats(data);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const currentCampusInfo =
     CAMPUS_SITES.find((c) => c.id === selectedCampus) || CAMPUS_SITES[0];
@@ -196,25 +208,33 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* 3. LIVE CAMPUS STATS BANNER */}
       <section className="bg-white rounded-2xl p-6 border border-[#d5e7da] shadow-xs grid grid-cols-2 md:grid-cols-4 gap-6 text-center divide-y md:divide-y-0 md:divide-x divide-[#e0f2e6]">
         <div className="flex flex-col items-center justify-center gap-1">
-          <span className="text-[32px] font-black text-[#012d1d]">98.4%</span>
+          <span className="text-[32px] font-black text-[#012d1d] tabular-nums">
+            {stats?.campusRecoveryRate || '78.4%'}
+          </span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
-            Match Verification Accuracy
+            Campus Recovery Rate
           </span>
         </div>
         <div className="flex flex-col items-center justify-center gap-1 pt-4 md:pt-0">
-          <span className="text-[32px] font-black text-[#a23e18]">1,240+</span>
+          <span className="text-[32px] font-black text-[#a23e18] tabular-nums">
+            {stats ? `${stats.reunitedItems} Items` : '14 Items'}
+          </span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
             Reunited Possessions
           </span>
         </div>
         <div className="flex flex-col items-center justify-center gap-1 pt-4 md:pt-0">
-          <span className="text-[32px] font-black text-[#012d1d]">7 Stations</span>
+          <span className="text-[32px] font-black text-[#012d1d] tabular-nums">
+            {stats?.activeDesks || 7} Stations
+          </span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
             Staffed Custody Desks
           </span>
         </div>
         <div className="flex flex-col items-center justify-center gap-1 pt-4 md:pt-0">
-          <span className="text-[32px] font-black text-[#1b4332]">&lt; 24h</span>
+          <span className="text-[32px] font-black text-[#1b4332] tabular-nums">
+            &lt; {stats?.avgReunionHours || '24h'}
+          </span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
             Average Resolution Time
           </span>

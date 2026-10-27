@@ -16,6 +16,7 @@ import { AuthModal } from './components/AuthModal';
 import { HelpSupportModal } from './components/HelpSupportModal';
 import { TermsPrivacyModal } from './components/TermsPrivacyModal';
 import { LoginView } from './components/LoginView';
+import { LiveCampusRadarModal } from './components/LiveCampusRadarModal';
 import { testSupabaseConnection } from './lib/supabase';
 import {
   seedInitialSupabaseDataIfEmpty,
@@ -58,6 +59,7 @@ export default function App() {
   const [matchCase, setMatchCase] = useState<MatchCase>(CURRENT_MATCH_CASE);
   const [claimTracking, setClaimTracking] = useState<ClaimTracking>(INITIAL_CLAIM_TRACKING);
   const [isReportFoundOpen, setIsReportFoundOpen] = useState(false);
+  const [isLiveRadarOpen, setIsLiveRadarOpen] = useState(false);
   const [isCampusDeskOpen, setIsCampusDeskOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -249,6 +251,7 @@ export default function App() {
         selectedCampus={selectedCampus}
         onSelectCampus={handleSelectCampus}
         onOpenCampusDesk={() => setIsCampusDeskOpen(true)}
+        onOpenLiveRadar={() => setIsLiveRadarOpen(true)}
         onOpenReportFound={() => setIsReportFoundOpen(true)}
         onOpenNotificationsModal={() => setIsNotificationsOpen(true)}
         onOpenAuthModal={() => setIsAuthOpen(true)}
@@ -409,6 +412,25 @@ export default function App() {
         isOpen={isTermsOpen}
         onClose={() => setIsTermsOpen(false)}
         initialTab={termsInitialTab}
+      />
+
+      {/* Real-time Campus Leaflet Radar Modal */}
+      <LiveCampusRadarModal
+        isOpen={isLiveRadarOpen}
+        onClose={() => setIsLiveRadarOpen(false)}
+        initialCampusId={selectedCampus}
+        items={items}
+        onSelectItem={(item) => {
+          setActiveTab('explore');
+        }}
+        onOpenReportLost={() => {
+          setIsLiveRadarOpen(false);
+          setActiveTab('report-lost');
+        }}
+        onOpenReportFound={() => {
+          setIsLiveRadarOpen(false);
+          setIsReportFoundOpen(true);
+        }}
       />
     </div>
   );

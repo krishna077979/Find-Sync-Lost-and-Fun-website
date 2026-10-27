@@ -17,7 +17,7 @@ import { HelpSupportModal } from './components/HelpSupportModal';
 import { TermsPrivacyModal } from './components/TermsPrivacyModal';
 import { LoginView } from './components/LoginView';
 import { LiveCampusRadarModal } from './components/LiveCampusRadarModal';
-import { testSupabaseConnection } from './lib/supabase';
+import { supabase, testSupabaseConnection, isSupabaseConfigured } from './lib/supabase';
 import {
   seedInitialSupabaseDataIfEmpty,
   subscribeToSupabaseItems,
@@ -25,33 +25,15 @@ import {
   updateItemInSupabase,
   saveClaimToSupabase,
   subscribeToSupabaseClaims,
+  getOrCreateUserProfile,
+  signOutFromSupabase,
+  fetchUserNotificationsFromSupabase,
 } from './services/supabaseService';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    try {
-      const stored = localStorage.getItem('findsync_user_session');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch {
-      // ignore
-    }
-    return null; // Login screen appears first for unauthenticated users
-  });
-
-  const [userRole, setUserRole] = useState<'student' | 'staff'>(() => {
-    try {
-      const stored = localStorage.getItem('findsync_user_session');
-      if (stored) {
-        const u = JSON.parse(stored);
-        if (u.role === 'staff' || u.role === 'admin') return 'staff';
-      }
-    } catch {
-      // ignore
-    }
-    return 'student';
-  });
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [userRole, setUserRole] = useState<'student' | 'staff'>('student');
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   const [activeTab, setActiveTab] = useState<ViewTab>('home');
   const [selectedCampus, setSelectedCampus] = useState<CampusId>('sage-bhopal');
@@ -69,24 +51,112 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Initialize Supabase connection and real-time listeners on mount
+  // Initialize Supabase Auth state, connection, and real-time listeners on mount
   useEffect(() => {
+    let isMounted = true;
+
     testSupabaseConnection();
     seedInitialSupabaseDataIfEmpty();
 
+    // 1. Initial Auth Session Restoration & Verification
+    const restoreSession = async () => {
+      try {
+        if (!isSupabaseConfigured) {
+          // In disconnected dev/preview fallback, check saved session or allow quick start
+          const stored = localStorage.getItem('findsync_user_session');
+          if (stored && isMounted) {
+            try {
+              const u = JSON.parse(stored);
+              setCurrentUser(u);
+              setUserRole(u.role === 'staff' || u.role === 'admin' ? 'staff' : 'student');
+            } catch {
+              // ignore
+            }
+          }
+          if (isMounted) setIsAuthChecking(false);
+          return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && isMounted) {
+          const profile = await getOrCreateUserProfile(session.user);
+          if (isMounted) {
+            setCurrentUser(profile);
+            setUserRole(profile.role === 'staff' || profile.role === 'admin' ? 'staff' : 'student');
+          }
+        }
+      } catch (err) {
+        console.warn('Initial session check note:', err);
+      } finally {
+        if (isMounted) {
+          setIsAuthChecking(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    // 2. Real-time Auth State Subscription
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
+      if (session?.user) {
+        try {
+          const profile = await getOrCreateUserProfile(session.user);
+          if (isMounted) {
+            setCurrentUser(profile);
+            setUserRole(profile.role === 'staff' || profile.role === 'admin' ? 'staff' : 'student');
+            setIsAuthChecking(false);
+
+            // Clean OAuth redirect fragments from URL
+            if (window.location.hash || window.location.search.includes('code=')) {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          }
+        } catch (e) {
+          console.warn('Profile resolution on auth state change note:', e);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        if (isMounted) {
+          setCurrentUser(null);
+          setUserRole('student');
+          setIsAuthChecking(false);
+          try {
+            localStorage.removeItem('findsync_user_session');
+          } catch {
+            // ignore
+          }
+        }
+      }
+    });
+
+    // 3. Real-time Data Subscriptions
     const unsubItems = subscribeToSupabaseItems((updatedItems) => {
-      setItems(updatedItems);
+      if (isMounted) setItems(updatedItems);
     });
 
     const unsubClaims = subscribeToSupabaseClaims((updatedClaim) => {
-      setClaimTracking(updatedClaim);
+      if (isMounted) setClaimTracking(updatedClaim);
     });
 
     return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
       unsubItems();
       unsubClaims();
     };
   }, []);
+
+  // Sync user notifications when authenticated user changes
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchUserNotificationsFromSupabase(currentUser.id).then((liveNotifs) => {
+        if (liveNotifs && liveNotifs.length > 0) {
+          setNotifications(liveNotifs);
+        }
+      });
+    }
+  }, [currentUser?.id]);
 
   // Enforce role-based access control: regular students cannot access Admin Portal
   useEffect(() => {
@@ -124,13 +194,19 @@ export default function App() {
   const handleReportLostCreated = async (newItem: Item) => {
     setItems((prev) => [newItem, ...prev]);
     showNotificationToast(`Lost report ${newItem.reportCode} created & broadcasting to campus matching engine.`);
-    await saveItemToSupabase(newItem);
+    const result = await saveItemToSupabase(newItem, currentUser?.id);
+    if (result.error) {
+      showNotificationToast(`Note: ${result.error}`);
+    }
   };
 
   const handleReportFoundCreated = async (newItem: Item) => {
     setItems((prev) => [newItem, ...prev]);
     showNotificationToast(`Found item ${newItem.reportCode} logged into ${newItem.binNumber}. Match scan initiated.`);
-    await saveItemToSupabase(newItem);
+    const result = await saveItemToSupabase(newItem, currentUser?.id);
+    if (result.error) {
+      showNotificationToast(`Note: ${result.error}`);
+    }
   };
 
   const handleSubmitClaimSuccess = async (claimId: string) => {
@@ -146,19 +222,19 @@ export default function App() {
       status: 'claim_submitted',
     }));
     showNotificationToast(`Claim ${claimId} transmitted to Officer Ramirez at Student Union Desk Counter #2.`);
-    await saveClaimToSupabase(updatedClaim);
+    await saveClaimToSupabase(updatedClaim, matchCase.foundItem?.id);
   };
 
   const handleApproveClaimByStaff = async () => {
     const updatedClaim: ClaimTracking = {
       ...claimTracking,
-      currentStep: 5, // Handover stage
+      currentStep: 5,
       status: 'handover_ready',
       updatedAgo: 'Just now',
     };
     setClaimTracking(updatedClaim);
     showNotificationToast('Officer Ramirez approved ID and released headphones for pickup.');
-    await saveClaimToSupabase(updatedClaim);
+    await saveClaimToSupabase(updatedClaim, matchCase.foundItem?.id);
   };
 
   const handleMarkAllNotificationsRead = () => {
@@ -188,8 +264,10 @@ export default function App() {
     showNotificationToast(`Logged in as ${user.name} (${user.role.toUpperCase()})`);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOutFromSupabase();
     setCurrentUser(null);
+    setUserRole('student');
     try {
       localStorage.removeItem('findsync_user_session');
     } catch {
@@ -201,8 +279,20 @@ export default function App() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // CRITICAL: Unauthenticated users see the Login interface first.
-  // No main navigation or private reports are displayed before authentication.
+  // Render authenticating screen while restoring session on initial load
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-[#fbfdf9] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-[#e6f8eb] text-[#012d1d] flex items-center justify-center mb-4 shadow-sm border border-[#c1ecd4] animate-pulse">
+          <span className="material-symbols-outlined text-3xl">verified_user</span>
+        </div>
+        <h2 className="text-xl font-bold text-[#012d1d]">Verifying Campus Session...</h2>
+        <p className="text-sm text-[#414844] mt-1">Connecting to FindSync Institutional Auth</p>
+      </div>
+    );
+  }
+
+  // Unauthenticated users see the Login interface first
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-[#fbfdf9]">
@@ -316,6 +406,7 @@ export default function App() {
             <ReportLostView
               initialCampusId={selectedCampus}
               items={items}
+              currentUser={currentUser}
               onReportCreated={handleReportLostCreated}
               onNavigateToTab={handleSelectTab}
               onNavigateToMatch={() => handleSelectTab('potential-matches')}
@@ -326,6 +417,7 @@ export default function App() {
             <MyItemsView
               items={items}
               claimTracking={claimTracking}
+              currentUser={currentUser}
               onNavigateToTab={handleSelectTab}
               onNavigateToMatch={() => handleSelectTab('potential-matches')}
               onOpenReportFound={() => setIsReportFoundOpen(true)}
@@ -365,6 +457,7 @@ export default function App() {
         onClose={() => setIsReportFoundOpen(false)}
         onItemFoundCreated={handleReportFoundCreated}
         items={items}
+        currentUser={currentUser}
       />
 
       {/* Campus Handover Desks & Dispatch Info Modal */}
@@ -420,7 +513,7 @@ export default function App() {
         onClose={() => setIsLiveRadarOpen(false)}
         initialCampusId={selectedCampus}
         items={items}
-        onSelectItem={(item) => {
+        onSelectItem={(_item) => {
           setActiveTab('explore');
         }}
         onOpenReportLost={() => {

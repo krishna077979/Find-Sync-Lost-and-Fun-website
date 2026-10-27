@@ -2,10 +2,16 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Retrieve Supabase credentials from client environment variables
 // Supports both VITE_SUPABASE_PUBLISHABLE_KEY and VITE_SUPABASE_ANON_KEY
-const envUrl = import.meta.env.VITE_SUPABASE_URL;
+// Handles both Vite (import.meta.env) and Node.js/tsx test runtimes (process.env)
+const metaEnv = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env : {};
+const procEnv = typeof process !== 'undefined' && process.env ? process.env : {};
+
+const envUrl = metaEnv.VITE_SUPABASE_URL || procEnv.VITE_SUPABASE_URL;
 const envKey =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  import.meta.env.VITE_SUPABASE_ANON_KEY;
+  metaEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  metaEnv.VITE_SUPABASE_ANON_KEY ||
+  procEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  procEnv.VITE_SUPABASE_ANON_KEY;
 
 // Check if live Supabase project credentials are provided
 export const isSupabaseConfigured = Boolean(
@@ -28,8 +34,9 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storage: window.localStorage,
+    detectSessionInUrl: typeof window !== 'undefined',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    flowType: 'pkce',
   },
 });
 

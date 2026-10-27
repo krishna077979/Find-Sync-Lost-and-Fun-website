@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Item, ItemCategory, CampusId, FacilitySector, ItemLocationCoordinates } from '../types';
+import { Item, ItemCategory, CampusId, FacilitySector, ItemLocationCoordinates, UserProfile } from '../types';
 import { CameraCaptureWidget } from './CameraCaptureWidget';
 import { CampusMapPicker } from './CampusMapPicker';
 import {
@@ -14,6 +14,7 @@ interface ReportFoundModalProps {
   onClose: () => void;
   onItemFoundCreated: (newItem: Item) => void;
   items?: Item[];
+  currentUser?: UserProfile | null;
 }
 
 export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
@@ -21,6 +22,7 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
   onClose,
   onItemFoundCreated,
   items = [],
+  currentUser,
 }) => {
   const allCampuses = getCampusConfigurations();
   const [title, setTitle] = useState('');
@@ -178,7 +180,9 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
         imageAlt: title,
         imageTagLabel: 'Staff Intake Photograph',
         officerNotes,
-        officerName: 'Staff Officer R. Ramirez (#ST-44)',
+        officerName: currentUser?.name || 'Campus Member',
+        ownerName: currentUser?.name || 'Campus Member',
+        ownerId: currentUser?.id,
         createdAt: new Date().toISOString(),
       };
 

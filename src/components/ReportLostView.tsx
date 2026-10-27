@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Item, ItemCategory, ViewTab, CampusId, FacilitySector, ItemLocationCoordinates } from '../types';
+import { Item, ItemCategory, ViewTab, CampusId, FacilitySector, ItemLocationCoordinates, UserProfile } from '../types';
 import { CameraCaptureWidget } from './CameraCaptureWidget';
 import { CampusMapPicker } from './CampusMapPicker';
 import {
@@ -16,6 +16,7 @@ interface ReportLostViewProps {
   onNavigateToTab: (tab: ViewTab) => void;
   onNavigateToMatch: (caseId?: string) => void;
   items?: Item[];
+  currentUser?: UserProfile | null;
 }
 
 export const ReportLostView: React.FC<ReportLostViewProps> = ({
@@ -24,6 +25,7 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
   onNavigateToTab,
   onNavigateToMatch,
   items = [],
+  currentUser,
 }) => {
   const [activeStep, setActiveStep] = useState<number>(1);
   const [title, setTitle] = useState('MacBook Air M2 (Space Gray)');
@@ -270,8 +272,8 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
           photoUrl ||
           'https://lh3.googleusercontent.com/aida-public/AB6AXuD8TN1h31vRiYwKoKD-LlLEYTr8dpaQr7ifc3TqEFWL9EcCi-PyG2CCSayHNfWDjFnp3ffW8kJr8GMnmp9ZU8cyXj0k52r6nobBt0au-3rN25lnGfngZ3xEU-COQI7uIr-xaLGOVCBy9J1rjCSsecVIs_Bslu_BfLppkHPgLDDeLgznu8mPIS9eOyNrptk_HluwVzcEKmTw_g6ROj-VKkW056K_heJHbxT2cVx8ehiarqVrwjFw3froQQ',
         imageAlt: title,
-        ownerName: 'Maya Lin',
-        ownerId: '#USR-9102-MAYAL',
+        ownerName: currentUser?.name || 'Campus Member',
+        ownerId: currentUser?.id || undefined,
         confidentialClues: {
           uniqueMark: clue1,
           internalContents: clue2,

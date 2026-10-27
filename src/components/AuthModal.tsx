@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
+import {
+  signInWithEmailPassword,
+  signUpWithEmailPassword,
+  signInWithGoogleOAuth,
+  requestPasswordReset,
+} from '../services/supabaseService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -25,60 +31,103 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [studentId, setStudentId] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [maskPhone, setMaskPhone] = useState(true);
   const [matchAlerts, setMatchAlerts] = useState(true);
 
   if (!isOpen) return null;
 
-  const handleGoogleSignInModal = () => {
-    const googleUser: UserProfile = {
-      id: `usr-google-${Date.now()}`,
-      name: roleSelection === 'staff' ? 'Officer Google Staff' : 'Student Google User',
-      email: roleSelection === 'staff' ? 'staff.google@bhopal-safety.org' : 'student.google@gmail.com',
-      role: roleSelection,
-      studentId: roleSelection === 'staff' ? 'STAFF-G-099' : 'STU-G-7182',
-      campusId: 'sage-bhopal',
-      department: roleSelection === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
-    };
-    onSwitchUser(googleUser);
-    setFeedbackMsg(`Signed in with Google Account (${googleUser.email})`);
-    setTimeout(() => {
-      setFeedbackMsg(null);
-      onClose();
-    }, 800);
+  const handleGoogleSignInModal = async () => {
+    setErrorMessage(null);
+    setIsLoading(true);
+    const { error } = await signInWithGoogleOAuth();
+    setIsLoading(false);
+    if (error) {
+      setErrorMessage(error);
+    } else {
+      setFeedbackMsg('Redirecting to Google Sign-In...');
+      setTimeout(() => {
+        setFeedbackMsg(null);
+        onClose();
+      }, 1000);
+    }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFeedbackMsg(`Logged in successfully as ${roleSelection === 'student' ? 'Student Maya Lin' : 'Staff Officer Ramirez'}.`);
-    setTimeout(() => {
-      setFeedbackMsg(null);
-      onClose();
-    }, 1000);
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    const { user, error } = await signInWithEmailPassword(email.trim(), password);
+    setIsLoading(false);
+
+    if (error) {
+      setErrorMessage(error);
+      return;
+    }
+
+    if (user) {
+      onSwitchUser(user);
+      setFeedbackMsg(`Welcome back, ${user.name}!`);
+      setTimeout(() => {
+        setFeedbackMsg(null);
+        onClose();
+      }, 1000);
+    }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newUser: UserProfile = {
-      id: `usr-${Date.now()}`,
-      name: name || 'New Campus Member',
-      email: email || 'student@caldwell.edu',
-      role: roleSelection,
-      studentId: studentId || 'CW-2024-9999',
-      campusId: 'main-campus',
-      department: roleSelection === 'student' ? 'Undergraduate Studies' : 'Campus Safety Desk',
-    };
-    onSwitchUser(newUser);
-    setFeedbackMsg(`Account registered for ${newUser.name}!`);
-    setTimeout(() => {
-      setFeedbackMsg(null);
-      setMode('profile');
-    }, 1000);
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    const { user, error, confirmationRequired } = await signUpWithEmailPassword(
+      email.trim(),
+      password,
+      name.trim() || 'Campus Member'
+    );
+    setIsLoading(false);
+
+    if (error) {
+      setErrorMessage(error);
+      return;
+    }
+
+    if (confirmationRequired) {
+      setFeedbackMsg('Confirmation email sent! Please check your inbox.');
+      setTimeout(() => {
+        setFeedbackMsg(null);
+        setMode('login');
+      }, 2500);
+      return;
+    }
+
+    if (user) {
+      onSwitchUser(user);
+      setFeedbackMsg(`Account registered for ${user.name}!`);
+      setTimeout(() => {
+        setFeedbackMsg(null);
+        setMode('profile');
+      }, 1000);
+    }
   };
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setResetSent(true);
+    setErrorMessage(null);
+    if (!email.trim()) {
+      setErrorMessage('Please enter your account email.');
+      return;
+    }
+    setIsLoading(true);
+    const { success, error } = await requestPasswordReset(email.trim());
+    setIsLoading(false);
+    if (error) {
+      setErrorMessage(error);
+    } else if (success) {
+      setResetSent(true);
+    }
   };
 
   return (

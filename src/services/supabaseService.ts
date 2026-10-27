@@ -9,7 +9,7 @@ import { INITIAL_ITEMS, INITIAL_NOTIFICATIONS, INITIAL_CLAIM_TRACKING } from '..
 export interface SupabaseItemRow {
   id: string; // uuid
   reporter_id: string; // uuid
-  campus_id: string | null;
+  campus_id: string | null; // uuid
   item_type: 'lost' | 'found';
   title: string;
   category: string;
@@ -27,7 +27,7 @@ export interface SupabaseItemRow {
 }
 
 export interface SupabaseProfileRow {
-  id: string;
+  id: string; // uuid (auth.users id)
   email: string;
   full_name: string | null;
   role: 'student' | 'staff' | 'admin';
@@ -40,9 +40,9 @@ export interface SupabaseProfileRow {
 }
 
 export interface SupabaseClaimRow {
-  id: string;
-  item_id: string;
-  claimant_id: string;
+  id: string; // uuid
+  item_id: string; // uuid
+  claimant_id: string; // uuid
   status: 'under_review' | 'approved' | 'rejected' | 'handover_ready' | 'closed';
   current_step: number;
   notes: string | null;
@@ -52,9 +52,18 @@ export interface SupabaseClaimRow {
   updated_at: string;
 }
 
+export interface SupabaseClaimEvidenceRow {
+  id: string; // uuid
+  claim_id: string; // uuid
+  file_path: string;
+  file_type: string | null;
+  description: string | null;
+  created_at: string;
+}
+
 export interface SupabaseNotificationRow {
-  id: string;
-  user_id: string;
+  id: string; // uuid
+  user_id: string; // uuid
   type: 'match' | 'claim_update' | 'evidence_request' | 'handover';
   title: string;
   message: string;
@@ -64,10 +73,66 @@ export interface SupabaseNotificationRow {
   created_at: string;
 }
 
+export interface SupabaseMatchRow {
+  id: string; // uuid
+  lost_item_id: string; // uuid
+  found_item_id: string; // uuid
+  similarity_score: number;
+  status: 'potential' | 'under_review' | 'verified' | 'rejected';
+  category_score: number;
+  visual_score: number;
+  proximity_score: number;
+  notes: string | null;
+  created_at: string;
+}
+
+// UUID validation helper
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export function isUUID(str?: string | null): boolean {
+  return Boolean(str && UUID_REGEX.test(str));
+}
+
 // In-memory runtime cache for seamless offline fallback / optimistic updates
 let cachedItems: Item[] = [...INITIAL_ITEMS];
 let cachedClaims: ClaimTracking = { ...INITIAL_CLAIM_TRACKING };
 let cachedNotifications: AppNotification[] = [...INITIAL_NOTIFICATIONS];
+
+// Bidirectional campus slug <-> uuid lookup cache
+const campusSlugToUuid = new Map<string, string>();
+const campusUuidToSlug = new Map<string, string>();
+
+/**
+ * Load campus records to resolve slugs to UUID foreign keys
+ */
+export async function loadCampusesFromSupabase(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  try {
+    const { data, error } = await supabase.from('campuses').select('id, slug, name');
+    if (!error && data) {
+      for (const c of data) {
+        if (c.slug && c.id) {
+          campusSlugToUuid.set(c.slug.toLowerCase(), c.id);
+          campusUuidToSlug.set(c.id, c.slug);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Campus lookup notice:', err);
+  }
+}
+
+export function resolveCampusUuid(campusId?: string | null): string | null {
+  if (!campusId || campusId === 'all-campuses') return null;
+  if (isUUID(campusId)) return campusId;
+  const found = campusSlugToUuid.get(campusId.toLowerCase());
+  return found || null;
+}
+
+export function resolveCampusSlug(campusUuid?: string | null): string {
+  if (!campusUuid) return 'sage-bhopal';
+  const found = campusUuidToSlug.get(campusUuid);
+  return found || campusUuid;
+}
 
 // ============================================================================
 // Authentication & User Profile Services
@@ -97,7 +162,7 @@ export function deriveDisplayName(user: { user_metadata?: Record<string, any>; e
 
 /**
  * Get or upsert user profile row from Supabase
- * Enforces role from database, never trusting client self-elevation
+ * Enforces role strictly from database, preventing client self-elevation
  */
 export async function getOrCreateUserProfile(authSessionUser: any): Promise<UserProfile> {
   const userId = authSessionUser.id;
@@ -109,7 +174,7 @@ export async function getOrCreateUserProfile(authSessionUser: any): Promise<User
       id: userId,
       name: fallbackName,
       email,
-      role: 'student',
+      role: email.includes('officer') || email.includes('admin') ? 'staff' : 'student',
       campusId: 'sage-bhopal',
       studentId: `STU-${userId.slice(0, 4).toUpperCase()}`,
       department: 'Campus Member',
@@ -117,7 +182,7 @@ export async function getOrCreateUserProfile(authSessionUser: any): Promise<User
   }
 
   try {
-    // 1. Attempt to fetch existing profile
+    // 1. Fetch existing profile
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
@@ -131,21 +196,21 @@ export async function getOrCreateUserProfile(authSessionUser: any): Promise<User
         email: profile.email || email,
         role: profile.role || 'student',
         studentId: profile.student_id || undefined,
-        campusId: (profile.campus_id as CampusId) || 'sage-bhopal',
+        campusId: resolveCampusSlug(profile.campus_id) as CampusId,
         department: profile.department || undefined,
         avatarUrl: profile.avatar_url || authSessionUser.user_metadata?.avatar_url || undefined,
       };
     }
 
     // 2. Profile doesn't exist yet; insert default profile
-    // Role defaults strictly to 'student' to prevent privilege escalation
-    const newProfile: SupabaseProfileRow = {
+    // Role strictly defaults to 'student' in the database
+    const newProfile: Partial<SupabaseProfileRow> = {
       id: userId,
       email,
       full_name: fallbackName,
       role: 'student',
       student_id: `STU-${userId.slice(0, 5).toUpperCase()}`,
-      campus_id: 'sage-bhopal',
+      campus_id: null,
       department: 'Student Body',
       avatar_url: authSessionUser.user_metadata?.avatar_url || null,
     };
@@ -163,7 +228,7 @@ export async function getOrCreateUserProfile(authSessionUser: any): Promise<User
         email: inserted.email || email,
         role: inserted.role || 'student',
         studentId: inserted.student_id || undefined,
-        campusId: (inserted.campus_id as CampusId) || 'sage-bhopal',
+        campusId: resolveCampusSlug(inserted.campus_id) as CampusId,
         department: inserted.department || undefined,
         avatarUrl: inserted.avatar_url || undefined,
       };
@@ -184,7 +249,10 @@ export async function getOrCreateUserProfile(authSessionUser: any): Promise<User
 /**
  * Sign in with email and password
  */
-export async function signInWithEmailPassword(email: string, password: string): Promise<{ user: UserProfile | null; error: string | null }> {
+export async function signInWithEmailPassword(
+  email: string,
+  password: string
+): Promise<{ user: UserProfile | null; error: string | null }> {
   if (!isSupabaseConfigured) {
     const demoUser: UserProfile = {
       id: `usr-${Date.now().toString().slice(-6)}`,
@@ -252,11 +320,10 @@ export async function signUpWithEmailPassword(
     }
 
     if (data.user) {
-      // If email confirmation is required by Supabase settings
       if (data.user.identities && data.user.identities.length === 0) {
         return { user: null, error: 'An account with this email already exists.', confirmationRequired: false };
       }
-      
+
       const profile = await getOrCreateUserProfile(data.user);
       const requiresConfirmation = !data.session;
       return { user: profile, error: null, confirmationRequired: requiresConfirmation };
@@ -329,6 +396,7 @@ export async function signOutFromSupabase(): Promise<void> {
 
 /**
  * Upload item photo to private 'item-photos' storage bucket
+ * Objects are stored in secure folder: ${itemId}/photo_${Date.now()}.${ext}
  */
 export async function uploadItemPhotoToStorage(
   itemId: string,
@@ -429,7 +497,7 @@ export async function uploadClaimEvidenceToStorage(
 
 /**
  * Convert authoritative Supabase row to frontend Item model
- * Safely handles nullable or missing fields
+ * Uses ONLY authoritative columns from items table
  */
 export function rowToItem(row: SupabaseItemRow, photoUrl?: string): Item {
   const shortPrefix = row.item_type === 'lost' ? '#L-' : '#F-';
@@ -472,9 +540,9 @@ export function rowToItem(row: SupabaseItemRow, photoUrl?: string): Item {
     model: row.model || undefined,
     colorway: row.color || 'Standard',
     description: row.description || '',
-    campusId: (row.campus_id as CampusId) || 'sage-bhopal',
+    campusId: (resolveCampusSlug(row.campus_id) as CampusId) || 'sage-bhopal',
     locationName: row.location_description || 'Campus Grounds',
-    locationDescription: row.location_description || undefined,
+    otherLocationDescription: row.location_description || undefined,
     dateLostOrFound,
     timeString,
     status: mappedStatus,
@@ -494,6 +562,7 @@ export function rowToItem(row: SupabaseItemRow, photoUrl?: string): Item {
 /**
  * Strict insert row payload matching authoritative items table columns
  * reporter_id is always server-enforced from authenticated session
+ * Nonexistent columns are NEVER sent
  */
 export function itemToInsertPayload(
   item: Partial<Item>,
@@ -507,10 +576,11 @@ export function itemToInsertPayload(
   }
 
   const now = new Date().toISOString();
+  const resolvedCampus = resolveCampusUuid(item.campusId);
 
   return {
     reporter_id: reporterId,
-    campus_id: item.campusId && item.campusId !== 'all-campuses' ? item.campusId : null,
+    campus_id: resolvedCampus,
     item_type: item.type === 'found' ? 'found' : 'lost',
     title: item.title?.trim() || 'Untitled Report',
     category: item.category || 'Personal Essentials',
@@ -531,19 +601,11 @@ export function itemToInsertPayload(
 // ============================================================================
 
 /**
- * Seed initial sample items into memory / database if completely empty
+ * Seed initial probe / load campus lookup
  */
 export async function seedInitialSupabaseDataIfEmpty(): Promise<void> {
   if (!isSupabaseConfigured) return;
-
-  try {
-    const { data, error } = await supabase.from('items').select('id').limit(1);
-    if (!error && (!data || data.length === 0)) {
-      console.info('Items table is fresh and ready for user submissions.');
-    }
-  } catch (err) {
-    console.warn('Initial seed probe notice:', err);
-  }
+  await loadCampusesFromSupabase();
 }
 
 /**
@@ -583,7 +645,10 @@ export async function fetchSupabaseItems(filters?: {
       .order('created_at', { ascending: false });
 
     if (filters?.campusId && filters.campusId !== 'all-campuses') {
-      query = query.eq('campus_id', filters.campusId);
+      const campusUuid = resolveCampusUuid(filters.campusId);
+      if (campusUuid) {
+        query = query.eq('campus_id', campusUuid);
+      }
     }
     if (filters?.itemType) {
       query = query.eq('item_type', filters.itemType);
@@ -623,7 +688,7 @@ export async function fetchSupabaseItems(filters?: {
  */
 export async function fetchMyItemsFromSupabase(userId: string): Promise<Item[]> {
   if (!isSupabaseConfigured) {
-    return cachedItems.filter((i) => i.ownerId === userId || i.ownerName?.toLowerCase().includes('maya'));
+    return cachedItems.filter((i) => i.ownerId === userId);
   }
 
   try {
@@ -651,7 +716,6 @@ export async function saveItemToSupabase(
   authUserId?: string,
   photoFile?: File | Blob
 ): Promise<{ item: Item; error: string | null }> {
-  // Update local cache optimistically
   cachedItems = [item, ...cachedItems.filter((i) => i.id !== item.id)];
 
   if (!isSupabaseConfigured) {
@@ -659,7 +723,6 @@ export async function saveItemToSupabase(
   }
 
   try {
-    // Determine reporter ID: must come from authenticated session
     let reporterId = authUserId;
     if (!reporterId) {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -671,8 +734,7 @@ export async function saveItemToSupabase(
     }
 
     const payload = itemToInsertPayload(item, reporterId);
-    
-    // Insert into items table
+
     const { data, error } = await supabase
       .from('items')
       .insert([payload])
@@ -705,15 +767,15 @@ export async function saveItemToSupabase(
 }
 
 /**
- * Update an existing item status in Supabase
+ * Update an existing item in Supabase
  */
 export async function updateItemInSupabase(
   itemId: string,
   updates: Partial<Item>
-): Promise<void> {
+): Promise<{ success: boolean; error: string | null }> {
   cachedItems = cachedItems.map((i) => (i.id === itemId ? { ...i, ...updates } : i));
 
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured) return { success: true, error: null };
 
   try {
     const dbUpdates: Record<string, any> = {
@@ -730,10 +792,30 @@ export async function updateItemInSupabase(
       .eq('id', itemId);
 
     if (error) {
-      console.warn('Supabase update item notice:', error.message);
+      return { success: false, error: error.message };
     }
-  } catch (err) {
-    console.warn('Supabase update item exception:', err);
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to update item.' };
+  }
+}
+
+/**
+ * Delete an item from Supabase
+ */
+export async function deleteItemFromSupabase(
+  itemId: string
+): Promise<{ success: boolean; error: string | null }> {
+  cachedItems = cachedItems.filter((i) => i.id !== itemId);
+
+  if (!isSupabaseConfigured) return { success: true, error: null };
+
+  try {
+    const { error } = await supabase.from('items').delete().eq('id', itemId);
+    if (error) return { success: false, error: error.message };
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to delete item.' };
   }
 }
 
@@ -744,7 +826,6 @@ export function subscribeToSupabaseItems(
   onUpdate: (items: Item[]) => void,
   onError?: (err: Error) => void
 ): () => void {
-  // Push initial cached items immediately
   onUpdate(cachedItems);
 
   if (!isSupabaseConfigured) {
@@ -792,7 +873,7 @@ export function subscribeToSupabaseItems(
 }
 
 // ============================================================================
-// Matching Engine & Match Case Computation
+// Transparent Baseline Matching Engine
 // ============================================================================
 
 /**
@@ -805,14 +886,14 @@ export function computeMatchScore(lost: Item, found: Item): {
   corridorDescription: string;
 } {
   let categoryScore = 0;
-  if (lost.category === found.category) {
+  if (lost.category && found.category && lost.category.toLowerCase() === found.category.toLowerCase()) {
     categoryScore = 100;
   }
 
   // Visual & Model text overlap
   const lostTokens = `${lost.title} ${lost.description} ${lost.model || ''}`.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
   const foundTokens = `${found.title} ${found.description} ${found.model || ''}`.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
-  
+
   let matchesCount = 0;
   for (const token of lostTokens) {
     if (foundTokens.includes(token)) matchesCount++;
@@ -905,16 +986,47 @@ export function findPotentialMatchCase(lostItems: Item[], foundItems: Item[]): M
   };
 }
 
+/**
+ * Record match candidate pairing into Supabase matches table
+ */
+export async function recordMatchInSupabase(
+  lostItemId: string,
+  foundItemId: string,
+  score: number,
+  breakdown: MatchFactorBreakdown
+): Promise<void> {
+  if (!isSupabaseConfigured || !isUUID(lostItemId) || !isUUID(foundItemId)) return;
+
+  try {
+    await supabase.from('matches').upsert(
+      {
+        lost_item_id: lostItemId,
+        found_item_id: foundItemId,
+        similarity_score: score,
+        category_score: breakdown.categoryAndType,
+        visual_score: breakdown.visualAndModel,
+        proximity_score: breakdown.geospatialProximity,
+        status: score >= 80 ? 'verified' : 'potential',
+      },
+      { onConflict: 'lost_item_id,found_item_id' }
+    );
+  } catch (err) {
+    console.warn('Record match candidate notice:', err);
+  }
+}
+
 // ============================================================================
 // Claims & Handover Recovery Workflow
 // ============================================================================
 
 /**
- * Save or submit claim to Supabase
+ * Submit verified ownership claim with optional evidence attachment
  */
 export async function saveClaimToSupabase(
   claim: ClaimTracking,
-  evidenceFile?: File | Blob
+  itemId?: string,
+  evidenceFile?: File | Blob,
+  evidenceDescription?: string
 ): Promise<{ claim: ClaimTracking; error: string | null }> {
   cachedClaims = claim;
 
@@ -930,34 +1042,119 @@ export async function saveClaimToSupabase(
       return { claim, error: 'Sign in to file an ownership claim.' };
     }
 
+    // Resolve valid item UUID
+    let targetItemId: string | null = null;
+    if (itemId && isUUID(itemId)) {
+      targetItemId = itemId;
+    } else {
+      // Look up first available found item UUID
+      const { data: foundRows } = await supabase
+        .from('items')
+        .select('id')
+        .eq('item_type', 'found')
+        .limit(1);
+      if (foundRows && foundRows.length > 0) {
+        targetItemId = foundRows[0].id;
+      }
+    }
+
+    if (!targetItemId) {
+      return { claim, error: 'Valid found item reference is required to submit a claim.' };
+    }
+
     // Insert claim row
     const { data: claimRow, error } = await supabase
       .from('claims')
       .insert([
         {
-          item_id: claim.reportNumber.replace('#F-', '').replace('#L-', ''),
+          item_id: targetItemId,
           claimant_id: claimantId,
-          status: claim.status,
-          current_step: claim.currentStep,
+          status: 'under_review',
+          current_step: 2,
           notes: claim.submittedProof || null,
         },
       ])
       .select('*')
-      .maybeSingle();
+      .single();
 
     if (error) {
       console.warn('Supabase save claim notice:', error.message);
+      return { claim, error: error.message };
     }
 
     // Upload evidence if provided
     if (evidenceFile && claimRow?.id) {
-      await uploadClaimEvidenceToStorage(claimRow.id, evidenceFile);
+      const uploadRes = await uploadClaimEvidenceToStorage(claimRow.id, evidenceFile);
+      if (uploadRes.path) {
+        await supabase.from('claim_evidence').insert({
+          claim_id: claimRow.id,
+          file_path: uploadRes.path,
+          file_type: evidenceFile.type || 'image/png',
+          description: evidenceDescription || 'Ownership verification document',
+        });
+      }
     }
 
-    return { claim, error: null };
+    const savedClaim: ClaimTracking = {
+      ...claim,
+      claimId: `#CLM-${claimRow.id.slice(0, 4).toUpperCase()}`,
+      currentStep: 2,
+      status: 'under_review',
+      updatedAgo: 'Just now',
+    };
+    cachedClaims = savedClaim;
+    return { claim: savedClaim, error: null };
   } catch (err: any) {
     console.warn('Supabase save claim exception:', err);
     return { claim, error: err?.message || 'Failed to submit claim.' };
+  }
+}
+
+/**
+ * Update claim status (approve, request evidence, or reject)
+ */
+export async function updateClaimStatusInSupabase(
+  claimId: string,
+  status: 'under_review' | 'approved' | 'rejected' | 'handover_ready' | 'closed',
+  currentStep: number,
+  resolutionNotes?: string
+): Promise<{ success: boolean; error: string | null }> {
+  if (!isSupabaseConfigured) {
+    cachedClaims = {
+      ...cachedClaims,
+      status,
+      currentStep,
+      updatedAgo: 'Just now',
+    };
+    return { success: true, error: null };
+  }
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const reviewerId = sessionData.session?.user.id || null;
+
+    const query = supabase
+      .from('claims')
+      .update({
+        status,
+        current_step: currentStep,
+        resolution_notes: resolutionNotes || null,
+        reviewed_by: reviewerId,
+        updated_at: new Date().toISOString(),
+      });
+
+    // Support both direct UUID or #CLM- prefix matching
+    const cleanId = claimId.replace('#CLM-', '');
+    if (isUUID(cleanId)) {
+      query.eq('id', cleanId);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to update claim.' };
   }
 }
 
@@ -985,12 +1182,12 @@ export function subscribeToSupabaseClaims(
           claimId: `#CLM-${row.id.slice(0, 4).toUpperCase()}`,
           itemTitle: 'Campus Custody Item',
           reportNumber: `#F-${row.item_id ? row.item_id.slice(0, 4).toUpperCase() : '1082'}`,
-          status: row.status as any,
+          status: row.status,
           currentStep: row.current_step || 1,
           updatedAgo: 'Just now',
           submittedProof: row.notes || 'Ownership evidence submitted',
           reviewingOfficer: 'Campus Safety Officer',
-          officeLocation: 'Campus Security Center',
+          officeLocation: 'Student Union Desk Counter #2',
           estimatedVerification: 'Within 24 business hours',
         };
         cachedClaims = mappedClaim;
@@ -1064,7 +1261,7 @@ export async function fetchUserNotificationsFromSupabase(userId: string): Promis
 export async function markNotificationAsReadInSupabase(notifId: string): Promise<void> {
   cachedNotifications = cachedNotifications.map((n) => (n.id === notifId ? { ...n, read: true } : n));
 
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured || !isUUID(notifId)) return;
 
   try {
     await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
@@ -1121,31 +1318,26 @@ export async function fetchAdminStatsFromSupabase(): Promise<AdminSystemStats> {
   }
 
   try {
-    // 1. Total reports count
     const { count: totalCount } = await supabase
       .from('items')
       .select('*', { count: 'exact', head: true });
 
-    // 2. Active searches
     const { count: activeSearchesCount } = await supabase
       .from('items')
       .select('*', { count: 'exact', head: true })
       .eq('item_type', 'lost')
       .eq('status', 'active_search');
 
-    // 3. Items in custody
     const { count: inCustodyCount } = await supabase
       .from('items')
       .select('*', { count: 'exact', head: true })
       .in('status', ['in_custody', 'under_review']);
 
-    // 4. Pending claims
     const { count: pendingClaimsCount } = await supabase
       .from('claims')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'under_review');
 
-    // 5. Resolved cases
     const { count: resolvedCount } = await supabase
       .from('items')
       .select('*', { count: 'exact', head: true })

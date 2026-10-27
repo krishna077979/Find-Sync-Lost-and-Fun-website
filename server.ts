@@ -1,150 +1,428 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
-import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
-const FASTAPI_PORT = 8888;
 
-// Start FastAPI service in the background if Python is available
-function startFastApiProcess() {
-  try {
-    const pythonBin = fs.existsSync('/usr/bin/python3') ? '/usr/bin/python3' : 'python3';
-    const fastApiProcess = spawn(pythonBin, ['-m', 'uvicorn', 'api.main:app', '--host', '127.0.0.1', '--port', String(FASTAPI_PORT)], {
-      stdio: 'pipe',
-      detached: false,
-    });
-
-    fastApiProcess.stdout?.on('data', (data) => {
-      console.log(`[FastAPI] ${data.toString().trim()}`);
-    });
-
-    fastApiProcess.stderr?.on('data', (data) => {
-      console.warn(`[FastAPI Info] ${data.toString().trim()}`);
-    });
-
-    fastApiProcess.on('error', (err) => {
-      console.warn('[FastAPI] Notice: could not spawn python uvicorn process, relying on in-process Express API proxy.', err.message);
-    });
-
-    process.on('exit', () => {
-      try {
-        fastApiProcess.kill();
-      } catch {
-        // ignore
-      }
-    });
-
-    return fastApiProcess;
-  } catch (err: any) {
-    console.warn('[FastAPI] Process launch note:', err.message);
-    return null;
-  }
+interface ItemLocationCoordinates {
+  lat: number;
+  lng: number;
+  formatted?: string;
+  accuracyMeters?: number;
 }
 
-startFastApiProcess();
+interface ItemRecord {
+  id: string;
+  reportCode: string;
+  type: 'lost' | 'found';
+  title: string;
+  category: string;
+  brand?: string;
+  model?: string;
+  colorway: string;
+  colorHex?: string;
+  description: string;
+  campusId: string;
+  campusName?: string;
+  buildingArea?: string;
+  locationName: string;
+  roomZone?: string;
+  dateLostOrFound: string;
+  timeString: string;
+  status: string;
+  binNumber?: string;
+  imageUrl: string;
+  imageAlt: string;
+  ownerId?: string;
+  locationCoordinates?: ItemLocationCoordinates;
+  createdAt: string;
+}
+
+interface ClaimRecord {
+  id: string;
+  claimId: string;
+  itemTitle: string;
+  reportNumber: string;
+  status: string;
+  currentStep: number;
+  updatedAgo: string;
+  submittedProof?: string;
+  reviewingOfficer?: string;
+  officeLocation?: string;
+  estimatedVerification?: string;
+  resolutionDate?: string;
+}
+
+// In-memory data store for standalone full-stack operation
+const itemsDb = new Map<string, ItemRecord>([
+  [
+    'item-lost-01',
+    {
+      id: 'item-lost-01',
+      reportCode: '#L-2049',
+      type: 'lost',
+      title: 'Sony WH-1000XM4 Noise Canceling Headphones',
+      category: 'Electronics',
+      brand: 'Sony',
+      model: 'WH-1000XM4',
+      colorway: 'Matte Black',
+      description: 'Black over-ear wireless headphones with a tiny scratch on the left ear cup hinge. In black travel case with braided USB-C cable.',
+      campusId: 'sage-bhopal',
+      campusName: 'SAGE University Bhopal',
+      buildingArea: 'Main Campus Library',
+      locationName: 'Library 2nd Floor Study Commons',
+      roomZone: 'Table Cluster B',
+      dateLostOrFound: 'Oct 14, 2024',
+      timeString: '2:15 PM',
+      status: 'active_search',
+      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+      imageAlt: 'Black Sony over-ear headphones on study desk',
+      createdAt: '2024-10-14T14:15:00Z',
+    },
+  ],
+  [
+    'item-found-01',
+    {
+      id: 'item-found-01',
+      reportCode: '#F-1082',
+      type: 'found',
+      title: 'Over-Ear Bluetooth Headphones in Hard Shell Case',
+      category: 'Electronics',
+      brand: 'Sony',
+      model: 'WH-1000XM4',
+      colorway: 'Matte Black',
+      description: 'Premium ANC over-ear headphones turned into Student Union desk by campus custodian. Minor abrasion noted near hinge pin.',
+      campusId: 'sage-bhopal',
+      campusName: 'SAGE University Bhopal',
+      buildingArea: 'Student Union Building',
+      locationName: 'Student Union Lower Atrium Lounge',
+      roomZone: 'North Entrance Seating',
+      dateLostOrFound: 'Oct 14, 2024',
+      timeString: '2:45 PM',
+      status: 'in_custody',
+      binNumber: 'BIN #E-14',
+      imageUrl: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=600&q=80',
+      imageAlt: 'Intake photograph of black over-ear headphones in storage',
+      createdAt: '2024-10-14T14:45:00Z',
+    },
+  ],
+]);
+
+const claimsDb = new Map<string, ClaimRecord>([
+  [
+    'CLM-9021',
+    {
+      id: 'CLM-9021',
+      claimId: 'CLM-9021',
+      itemTitle: 'Sony WH-1000XM4 Headphones',
+      reportNumber: '#F-1082',
+      status: 'under_review',
+      currentStep: 2,
+      updatedAgo: '10 mins ago',
+      submittedProof: 'Uploaded digital receipt from Best Buy and device MAC address snippet',
+      reviewingOfficer: 'Officer Ramirez',
+      officeLocation: 'Student Union Desk Counter #2',
+      estimatedVerification: 'Today by 4:30 PM',
+    },
+  ],
+]);
+
+function calculateDynamicMatch(lost: Partial<ItemRecord>, found: Partial<ItemRecord>) {
+  const catScore = (lost.category && found.category && lost.category.toLowerCase() === found.category.toLowerCase()) ? 100 : 30;
+
+  const brandMatch = (lost.brand && found.brand && lost.brand.toLowerCase() === found.brand.toLowerCase()) ? 1.0 : 0.5;
+  const modelMatch = (lost.model && found.model && lost.model.toLowerCase() === found.model.toLowerCase()) ? 1.0 : 0.4;
+  const colorMatch = (lost.colorway && found.colorway && (
+    lost.colorway.toLowerCase().includes(found.colorway.toLowerCase()) ||
+    found.colorway.toLowerCase().includes(lost.colorway.toLowerCase())
+  )) ? 1.0 : 0.3;
+
+  const tokensLost = new Set(`${lost.title || ''} ${lost.description || ''}`.toLowerCase().match(/\w+/g) || []);
+  const tokensFound = new Set(`${found.title || ''} ${found.description || ''}`.toLowerCase().match(/\w+/g) || []);
+  let intersectCount = 0;
+  for (const t of tokensLost) {
+    if (tokensFound.has(t)) intersectCount++;
+  }
+  const unionCount = Math.max(tokensLost.size + tokensFound.size - intersectCount, 1);
+  const jaccard = intersectCount / unionCount;
+
+  let visualScore = Math.round((brandMatch * 0.35 + modelMatch * 0.35 + colorMatch * 0.15 + jaccard * 0.15) * 100);
+  visualScore = Math.min(Math.max(visualScore, 25), 98);
+
+  const sameCampus = lost.campusId === found.campusId;
+  const sameBuilding = Boolean(lost.buildingArea && found.buildingArea && lost.buildingArea.toLowerCase() === found.buildingArea.toLowerCase());
+
+  let geoScore = 35;
+  let distanceMeters = 1200;
+  let transitTime = 'Separate campus sectors';
+  let corridor = `Across different campus sites (${lost.campusId} to ${found.campusId})`;
+
+  if (sameBuilding) {
+    geoScore = 95;
+    distanceMeters = 45;
+    transitTime = '~1 min walk';
+    corridor = `Within same building: ${lost.buildingArea}`;
+  } else if (sameCampus) {
+    geoScore = 82;
+    distanceMeters = 180;
+    transitTime = '~3 min transit walk';
+    corridor = `Campus central corridor between ${lost.locationName || 'location'} and ${found.locationName || 'location'}`;
+  }
+
+  const timeScore = lost.dateLostOrFound === found.dateLostOrFound ? 88 : 60;
+  let totalScore = Math.round(catScore * 0.25 + visualScore * 0.35 + timeScore * 0.20 + geoScore * 0.20);
+  totalScore = Math.min(Math.max(totalScore, 10), 96);
+
+  const explanation = `Strong similarity detected in ${lost.category || 'Asset'} category. ${
+    lost.brand && found.brand ? `Brand alignment verified (${lost.brand}). ` : ''
+  }Geospatial corridor check confirms item recovery along campus pathway (${transitTime}).`;
+
+  return {
+    confidenceScore: totalScore,
+    factorBreakdown: {
+      categoryAndType: catScore,
+      visualAndModel: visualScore,
+      timeProximity: timeScore,
+      geospatialProximity: geoScore,
+    },
+    explanation,
+    distanceMeters,
+    transitTime,
+    corridorDescription: corridor,
+  };
+}
 
 async function createServer() {
   const app = express();
   app.use(express.json());
 
-  // 1. Proxy requests for /api/*, /docs, /redoc, /openapi.json to FastAPI
-  app.all(['/api/*', '/docs', '/redoc', '/openapi.json'], async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const targetUrl = `http://127.0.0.1:${FASTAPI_PORT}${req.originalUrl}`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
-
-      const headers: Record<string, string> = {};
-      if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'] as string;
-      if (req.headers['authorization']) headers['authorization'] = req.headers['authorization'] as string;
-
-      const fetchOptions: RequestInit = {
-        method: req.method,
-        headers,
-        signal: controller.signal,
-      };
-
-      if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body && Object.keys(req.body).length > 0) {
-        fetchOptions.body = JSON.stringify(req.body);
-        headers['content-type'] = 'application/json';
-      }
-
-      const response = await fetch(targetUrl, fetchOptions);
-      clearTimeout(timeout);
-
-      const contentType = response.headers.get('content-type') || '';
-      res.status(response.status);
-
-      if (contentType.includes('application/json')) {
-        const json = await response.json();
-        return res.json(json);
-      } else {
-        const text = await response.text();
-        return res.send(text);
-      }
-    } catch {
-      // If FastAPI is still starting or warming up, proceed to Express fallback API routes
-      next();
-    }
+  // CORS middleware for safety
+  app.use((_req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    next();
   });
 
-  // 2. In-Process Express Fallback API Routes (Zero-downtime reliability)
+  // 1. Health check
   app.get('/api/health', (_req, res) => {
     res.json({
       status: 'online',
-      service: 'FindSync Unified Server & FastAPI Bridge',
-      engine: 'Express/FastAPI',
+      service: 'FindSync Unified Server',
+      engine: 'Express/TypeScript',
+      itemsCount: itemsDb.size,
+      claimsCount: claimsDb.size,
       timestamp: new Date().toISOString(),
     });
   });
 
+  // 2. Campus recovery statistics
   app.get('/api/stats', (_req, res) => {
+    const items = Array.from(itemsDb.values());
+    const lostCount = items.filter((i) => i.type === 'lost').length;
+    const foundCount = items.filter((i) => i.type === 'found').length;
+    const reunitedCount = items.filter((i) => i.status === 'reunited').length;
+
     res.json({
-      totalReports: 18,
-      lostItems: 10,
-      foundItems: 8,
-      reunitedItems: 14,
+      totalReports: items.length || 18,
+      lostItems: lostCount || 10,
+      foundItems: foundCount || 8,
+      reunitedItems: reunitedCount || 14,
       activeDesks: 7,
       campusRecoveryRate: '78.4%',
       avgReunionHours: '14.2h',
     });
   });
 
-  app.post('/api/match', (req, res) => {
-    const { lostItem, foundItem } = req.body || {};
-    const catScore = lostItem?.category === foundItem?.category ? 95 : 40;
-    const isBrand = lostItem?.brand && foundItem?.brand && lostItem.brand.toLowerCase() === foundItem.brand.toLowerCase();
-    const visualScore = isBrand ? 90 : 65;
-    const geoScore = lostItem?.campusId === foundItem?.campusId ? 85 : 45;
-    const timeScore = 80;
-    const total = Math.round(catScore * 0.25 + visualScore * 0.35 + geoScore * 0.2 + timeScore * 0.2);
+  // 3. Items list with filtering
+  app.get('/api/items', (req: Request, res: Response) => {
+    const { type, category, campusId, search } = req.query as Record<string, string | undefined>;
+    let results = Array.from(itemsDb.values());
 
-    res.json({
-      confidenceScore: total,
-      factorBreakdown: {
-        categoryAndType: catScore,
-        visualAndModel: visualScore,
-        geospatialProximity: geoScore,
-        timeProximity: timeScore,
-      },
-      explanation: `Multi-factor match verification completed. Category correspondence: ${catScore}%. Visual alignment: ${visualScore}%.`,
-      distanceMeters: 180,
-      transitTime: '~3 min walk',
-      corridorDescription: 'Central campus pedestrian corridor',
-    });
+    if (type) {
+      results = results.filter((i) => i.type.toLowerCase() === type.toLowerCase());
+    }
+    if (category && category !== 'all') {
+      results = results.filter((i) => i.category.toLowerCase() === category.toLowerCase());
+    }
+    if (campusId && campusId !== 'all-campuses') {
+      results = results.filter((i) => i.campusId.toLowerCase() === campusId.toLowerCase());
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      results = results.filter(
+        (i) =>
+          i.title.toLowerCase().includes(q) ||
+          i.description.toLowerCase().includes(q) ||
+          (i.brand && i.brand.toLowerCase().includes(q)) ||
+          i.reportCode.toLowerCase().includes(q)
+      );
+    }
+
+    res.json(results);
   });
 
-  app.get('/api/geocode', (req, res) => {
-    const q = (req.query.query as string) || 'Campus';
+  // 4. Get specific item
+  app.get('/api/items/:id', (req: Request, res: Response) => {
+    const item = itemsDb.get(req.params.id);
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    res.json(item);
+  });
+
+  // 5. Create item
+  app.post('/api/items', (req: Request, res: Response) => {
+    const item: ItemRecord = req.body;
+    if (!item.id) {
+      item.id = `item-${Date.now()}`;
+    }
+    if (!item.createdAt) {
+      item.createdAt = new Date().toISOString();
+    }
+    itemsDb.set(item.id, item);
+    res.status(201).json(item);
+  });
+
+  // 6. Update item
+  app.put('/api/items/:id', (req: Request, res: Response) => {
+    const current = itemsDb.get(req.params.id);
+    if (!current) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    const updated = { ...current, ...req.body };
+    itemsDb.set(req.params.id, updated);
+    res.json(updated);
+  });
+
+  // 7. Delete item
+  app.delete('/api/items/:id', (req: Request, res: Response) => {
+    itemsDb.delete(req.params.id);
+    res.status(204).end();
+  });
+
+  // 8. AI Matching verification
+  app.post('/api/match', async (req: Request, res: Response) => {
+    const { lostItem, foundItem } = req.body || {};
+    if (!lostItem || !foundItem) {
+      return res.status(400).json({ error: 'Missing lostItem or foundItem in body' });
+    }
+
+    const baseCalculation = calculateDynamicMatch(lostItem, foundItem);
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    if (geminiKey && geminiKey !== 'MY_GEMINI_API_KEY') {
+      try {
+        const ai = new GoogleGenAI();
+        const prompt = `Analyze these two campus lost & found reports and score their similarity from 0 to 100.
+Lost Report:
+Title: ${lostItem.title || 'Unknown'}
+Category: ${lostItem.category || 'General'}
+Brand: ${lostItem.brand || 'Unbranded'}
+Description: ${lostItem.description || ''}
+Location: ${lostItem.locationName || 'Campus'}
+Date: ${lostItem.dateLostOrFound || ''}
+
+Found Report:
+Title: ${foundItem.title || 'Unknown'}
+Category: ${foundItem.category || 'General'}
+Brand: ${foundItem.brand || 'Unbranded'}
+Description: ${foundItem.description || ''}
+Location: ${foundItem.locationName || 'Campus'}
+Date: ${foundItem.dateLostOrFound || ''}
+
+Provide a concise 1-sentence verification summary and an integer confidence score from 0 to 100.`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+        });
+
+        const text = response.text || '';
+        const match = text.match(/\b([0-9]{1,3})\b/);
+        if (match) {
+          const aiScore = parseInt(match[1], 10);
+          if (aiScore >= 0 && aiScore <= 100) {
+            baseCalculation.confidenceScore = Math.round(baseCalculation.confidenceScore * 0.4 + aiScore * 0.6);
+            baseCalculation.explanation = `Gemini AI Verified: ${text.slice(0, 180)}`;
+          }
+        }
+      } catch (err: unknown) {
+        console.warn('Gemini match note:', err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    res.json(baseCalculation);
+  });
+
+  // 9. Claims endpoints
+  app.post('/api/claims', (req: Request, res: Response) => {
+    const claim: ClaimRecord = req.body;
+    if (!claim.claimId) {
+      claim.claimId = `CLM-${Date.now()}`;
+    }
+    claim.id = claim.claimId;
+    claimsDb.set(claim.claimId, claim);
+    res.status(201).json(claim);
+  });
+
+  app.get('/api/claims/:id', (req: Request, res: Response) => {
+    const claim = claimsDb.get(req.params.id);
+    if (!claim) {
+      return res.status(404).json({ error: 'Claim not found' });
+    }
+    res.json(claim);
+  });
+
+  app.put('/api/claims/:id', (req: Request, res: Response) => {
+    const current = claimsDb.get(req.params.id);
+    if (!current) {
+      return res.status(404).json({ error: 'Claim not found' });
+    }
+    const updated = { ...current, ...req.body };
+    claimsDb.set(req.params.id, updated);
+    res.json(updated);
+  });
+
+  // 10. Geocoding endpoint (Nominatim OpenStreetMap with fallback)
+  app.get('/api/geocode', async (req: Request, res: Response) => {
+    const query = (req.query.query as string) || 'Campus';
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ' SAGE University Bhopal')}&format=json&limit=3`;
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'FindSync-Campus-LostAndFound/1.0' },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const results = data.map((item: any) => ({
+            display_name: item.display_name,
+            lat: parseFloat(item.lat),
+            lon: parseFloat(item.lon),
+            type: item.type || 'campus_location',
+          }));
+          return res.json(results);
+        }
+      }
+    } catch {
+      // ignore network errors and return default
+    }
+
     res.json([
       {
-        display_name: `${q} - SAGE University Bhopal Campus Ground`,
+        display_name: `${query} - SAGE University Bhopal Campus Ground`,
         lat: 23.1678,
         lon: 77.5312,
         type: 'campus_location',
@@ -152,7 +430,7 @@ async function createServer() {
     ]);
   });
 
-  // 3. Mount Vite middleware for dev / static for prod
+  // 11. Vite development middleware or static production serve
   if (process.env.NODE_ENV === 'production' && fs.existsSync(path.resolve(__dirname, 'dist'))) {
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (_req, res) => {
@@ -167,7 +445,7 @@ async function createServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`FindSync full-stack server running on http://0.0.0.0:${PORT} (FastAPI bridged on port ${FASTAPI_PORT})`);
+    console.log(`FindSync full-stack server running on http://0.0.0.0:${PORT}`);
   });
 }
 

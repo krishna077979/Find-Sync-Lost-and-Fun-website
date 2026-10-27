@@ -276,3 +276,102 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
   END IF;
 END $$;
+
+-- ------------------------------------------------------------------------------
+-- 11. STORAGE BUCKETS & STORAGE ROW LEVEL SECURITY (RLS) POLICIES
+-- ------------------------------------------------------------------------------
+-- Ensure private storage buckets exist: 'item-photos' and 'claim-evidence'
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES 
+  ('item-photos', 'item-photos', false, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/heic']),
+  ('claim-evidence', 'claim-evidence', false, 15728640, ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+ON CONFLICT (id) DO UPDATE SET
+  public = false;
+
+-- Storage RLS: item-photos
+DROP POLICY IF EXISTS "Authenticated users can upload item photos" ON storage.objects;
+CREATE POLICY "Authenticated users can upload item photos"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'item-photos');
+
+DROP POLICY IF EXISTS "Authenticated users can view item photos" ON storage.objects;
+CREATE POLICY "Authenticated users can view item photos"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'item-photos');
+
+DROP POLICY IF EXISTS "Users can update own item photos" ON storage.objects;
+CREATE POLICY "Users can update own item photos"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'item-photos' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+DROP POLICY IF EXISTS "Users can delete own item photos" ON storage.objects;
+CREATE POLICY "Users can delete own item photos"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'item-photos' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Storage RLS: claim-evidence
+DROP POLICY IF EXISTS "Authenticated users can upload claim evidence" ON storage.objects;
+CREATE POLICY "Authenticated users can upload claim evidence"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'claim-evidence');
+
+DROP POLICY IF EXISTS "Claimants, finders, and staff can view claim evidence" ON storage.objects;
+CREATE POLICY "Claimants, finders, and staff can view claim evidence"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'claim-evidence' AND (
+      EXISTS (
+        SELECT 1 FROM public.claims
+        WHERE claims.id::text = (storage.foldername(name))[1]
+          AND (
+            claims.claimant_id = auth.uid() OR
+            EXISTS (SELECT 1 FROM public.items WHERE items.id = claims.item_id AND items.reporter_id = auth.uid()) OR
+            EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role IN ('staff', 'admin'))
+          )
+      )
+    )
+  );
+
+-- ------------------------------------------------------------------------------
+-- 12. AUTOMATIC PROFILE CREATION TRIGGER (auth.users -> public.profiles)
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(
+      NEW.raw_user_meta_data->>'full_name',
+      NEW.raw_user_meta_data->>'name',
+      split_part(NEW.email, '@', 1)
+    ),
+    'student'
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ------------------------------------------------------------------------------
+-- 13. SEED CAMPUSES
+-- ------------------------------------------------------------------------------
+INSERT INTO public.campuses (slug, name, short_code, tagline, latitude, longitude)
+VALUES
+  ('sage-bhopal', 'SAGE University, Bhopal', 'SUB', 'Katara Hills Extension, Sahara Bypass Road', 23.1785, 77.4920),
+  ('sage-indore', 'SAGE University, Indore', 'SUI', 'Kailod Kartal, Rau Durg Bypass Road', 22.6850, 75.8620),
+  ('main-campus', 'Main Campus (Central Quad)', 'MCC', 'Academic Quad, Library, Student Union', 23.1787, 77.4922)
+ON CONFLICT (slug) DO NOTHING;
+

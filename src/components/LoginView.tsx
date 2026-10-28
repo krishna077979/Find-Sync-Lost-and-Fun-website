@@ -1,49 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { UserProfile, CampusId } from '../types';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import {
+  signInWithEmailPassword,
+  signUpWithEmailPassword,
+  signInWithGoogleOAuth,
+  requestPasswordReset,
+} from '../services/supabaseService';
 
-async function hashLocalPassword(password: string, salt: string) {
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 120000, hash: 'SHA-256' }, key, 256);
-  return Array.from(new Uint8Array(bits), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-async function getUserProfileFromSupabase(user: {
-  id: string;
-  email?: string;
-  user_metadata?: Record<string, unknown>;
-}): Promise<UserProfile> {
-  const metadata = user.user_metadata ?? {};
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, role, student_id, campus_id, department, avatar_url')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const name =
-    (typeof metadata.full_name === 'string' && metadata.full_name) ||
-    profile?.full_name ||
-    (typeof metadata.name === 'string' && metadata.name) ||
-    (typeof metadata.given_name === 'string' && metadata.given_name) ||
-    user.email?.split('@')[0] ||
-    'User';
-
-  const role = profile?.role === 'staff' || profile?.role === 'admin'
-    ? profile.role
-    : 'student';
-
-  return {
-    id: user.id,
-    name,
-    email: user.email ?? '',
-    role,
-    studentId: profile?.student_id ?? undefined,
-    campusId: (typeof metadata.campus_id === 'string' ? metadata.campus_id : profile?.campus_id) ?? 'main-campus',
-    department: (typeof metadata.department === 'string' ? metadata.department : profile?.department) ?? undefined,
-    avatarUrl: (typeof metadata.avatar_url === 'string' ? metadata.avatar_url : profile?.avatar_url) ?? undefined,
-    phone: typeof metadata.phone === 'string' ? metadata.phone : undefined,
-  };
-}
 interface LoginViewProps {
   onLoginSuccess: (user: UserProfile) => void;
 }
@@ -75,55 +38,27 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-useEffect(() => {
-  if (!isSupabaseConfigured) return;
 
-  let active = true;
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    if (!active || !session?.user) return;
-
-    const user = session.user;
-    window.setTimeout(() => {
-      if (active) void getUserProfileFromSupabase(user).then(onLoginSuccess);
-    }, 0);
-  });
-
-  return () => {
-    active = false;
-    subscription.unsubscribe();
-  };
-}, []);
   // Google Sign-In with Supabase Auth
-const handleGoogleSignIn = async () => {
-  setErrorMessage(null);
-  setIsGoogleLoading(true);
-
-  try {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase is not configured.');
+  const handleGoogleSignIn = async () => {
+    setErrorMessage(null);
+    setIsGoogleLoading(true);
+    try {
+      const { user, error } = await signInWithGoogleOAuth();
+      setIsGoogleLoading(false);
+      if (error) {
+        setErrorMessage(error);
+        return;
+      }
+      if (user) {
+        setSuccessMessage(`Signed in as ${user.name}`);
+        onLoginSuccess(user);
+      }
+    } catch (err: any) {
+      setIsGoogleLoading(false);
+      setErrorMessage(err?.message || 'Google sign-in encountered an issue.');
     }
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'select_account',
-        },
-      },
-    });
-
-    if (error) throw error;
-  } catch (error) {
-    setErrorMessage(
-      error instanceof Error ? error.message : 'Google sign-in failed.'
-    );
-    setIsGoogleLoading(false);
-  }
-};
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,51 +79,23 @@ const handleGoogleSignIn = async () => {
     }
 
     setIsLoading(true);
-    try {
-      if (isSupabaseConfigured) {
-        if (!trimmed.includes('@')) {
-          throw new Error('Enter the email address linked to your account.');
-        }
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: trimmed,
-          password,
-        });
-        if (error) throw error;
-        if (!data.user) throw new Error('Sign-in did not return a user account.');
-        const profile = await getUserProfileFromSupabase(data.user);
-        setSuccessMessage(`Welcome back, ${profile.name}!`);
-        onLoginSuccess(profile);
-        return;
-      }
 
-      let registeredUsers: UserProfile[] = [];
-      try {
-        const stored = localStorage.getItem('findsync_registered_users');
-        const parsed: unknown = stored ? JSON.parse(stored) : [];
-        if (Array.isArray(parsed)) registeredUsers = parsed as UserProfile[];
-      } catch {
-        // Ignore invalid local demo data.
-      }
-      const matched = registeredUsers.find((user) =>
-        user.email.toLowerCase() === trimmed.toLowerCase() ||
-        user.name.toLowerCase() === trimmed.toLowerCase()
-      );
-      const credentialsRaw = localStorage.getItem('findsync_local_credentials');
-      const credentials: { email: string; salt: string; hash: string }[] = credentialsRaw ? JSON.parse(credentialsRaw) : [];
-      const credential = credentials.find((entry) => entry.email.toLowerCase() === trimmed.toLowerCase());
-      if (!matched || !credential || await hashLocalPassword(password, credential.salt) !== credential.hash) throw new Error('Email or password is incorrect.');
+    const emailToUse = trimmed.includes('@') ? trimmed : `${trimmed}@findsync.campus`;
+    const { user, error } = await signInWithEmailPassword(emailToUse, password);
+    setIsLoading(false);
 
-      const authenticatedUser = { ...matched, role: loginRole };
-      setSuccessMessage(`Welcome back, ${authenticatedUser.name}!`);
-      onLoginSuccess(authenticatedUser);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Could not sign in.');
-    } finally {
-      setIsLoading(false);
+    if (error) {
+      setErrorMessage(error);
+      return;
+    }
+
+    if (user) {
+      setSuccessMessage(`Welcome back, ${user.name}!`);
+      onLoginSuccess(user);
     }
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -211,74 +118,28 @@ const handleGoogleSignIn = async () => {
 
     setIsLoading(true);
 
-    const performSignup = async () => {
-      try {
-        const timestamp = Date.now();
-        const normalizedEmail = signupEmail.trim().toLowerCase();
-        if (isSupabaseConfigured) {
-          const { data, error } = await supabase.auth.signUp({
-            email: normalizedEmail,
-            password: signupPassword,
-            options: {
-              data: {
-                full_name: signupName.trim(),
-                campus_id: signupCampus,
-              },
-            },
-          });
-          if (error) throw error;
+    const { user, error, confirmationRequired } = await signUpWithEmailPassword(
+      signupEmail.trim(),
+      signupPassword,
+      signupName.trim(),
+      signupCampus
+    );
+    setIsLoading(false);
 
-          // Supabase may return a user with no identities when that email is already registered.
-          if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-            setIdentifier(normalizedEmail);
-            setAuthMode('login');
-            throw new Error('A profile already exists for this email. Sign in or reset your password instead.');
-          }
+    if (error) {
+      setErrorMessage(error);
+      return;
+    }
 
-          if (data.session && data.user) {
-            const profile = await getUserProfileFromSupabase(data.user);
-            setSuccessMessage(`Account created successfully for ${profile.name}!`);
-            onLoginSuccess(profile);
-          } else {
-            setSuccessMessage('Account created. Check your email to confirm it, then sign in.');
-            setAuthMode('login');
-          }
-          return;
-        }
+    if (confirmationRequired) {
+      setSuccessMessage('Account registered! Please check your email inbox to verify your account.');
+      return;
+    }
 
-        const newUser: UserProfile = {
-          id: `usr-${timestamp}`,
-          name: signupName.trim(),
-          email: normalizedEmail,
-          role: signupRole,
-          studentId: signupRole === 'staff' ? `STAFF-${String(timestamp).slice(-4)}` : `STU-${String(timestamp).slice(-4)}`,
-          campusId: signupCampus,
-          department: signupRole === 'staff' ? 'Campus Safety Department' : 'University Studies',
-        };
-        const stored = localStorage.getItem('findsync_registered_users');
-        const parsed: unknown = stored ? JSON.parse(stored) : [];
-        const users = Array.isArray(parsed) ? parsed as UserProfile[] : [];
-        const credentialsRaw = localStorage.getItem('findsync_local_credentials');
-        const credentials: { email: string; salt: string; hash: string }[] = credentialsRaw ? JSON.parse(credentialsRaw) : [];
-        if (users.some((user) => user.email.toLowerCase() === normalizedEmail) || credentials.some((entry) => entry.email.toLowerCase() === normalizedEmail)) {
-          setIdentifier(normalizedEmail);
-          setAuthMode('login');
-          throw new Error('A profile already exists for this email. Sign in instead.');
-        }
-        const salt = crypto.randomUUID();
-        credentials.push({ email: normalizedEmail, salt, hash: await hashLocalPassword(signupPassword, salt) });
-        localStorage.setItem('findsync_registered_users', JSON.stringify([...users, newUser]));
-        localStorage.setItem('findsync_local_credentials', JSON.stringify(credentials));
-        setSuccessMessage(`Account created successfully for ${newUser.name}!`);
-        onLoginSuccess(newUser);
-      } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Could not create the account.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void performSignup();
+    if (user) {
+      setSuccessMessage(`Account created successfully for ${user.name}!`);
+      onLoginSuccess(user);
+    }
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
@@ -291,18 +152,13 @@ const handleGoogleSignIn = async () => {
     }
 
     setIsLoading(true);
-    try {
-      if (isSupabaseConfigured) {
-        const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-          redirectTo: window.location.origin,
-        });
-        if (error) throw error;
-      }
+    const { success, error } = await requestPasswordReset(resetEmail.trim());
+    setIsLoading(false);
+
+    if (error) {
+      setErrorMessage(error);
+    } else if (success) {
       setResetSent(true);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Could not send reset instructions.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -329,7 +185,7 @@ const handleGoogleSignIn = async () => {
 
         <div className="hidden sm:flex items-center gap-2 text-xs text-[#414844] font-medium">
           <span className="w-2 h-2 rounded-full bg-[#1b4332] animate-pulse" />
-          <span>University Campus &amp; Associated Campuses</span>
+          <span>University Lost &amp; Found</span>
         </div>
       </header>
 
@@ -375,7 +231,7 @@ const handleGoogleSignIn = async () => {
           {authMode === 'login' && (
             <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
               {/* Login Role Option */}
-              {!isSupabaseConfigured && <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-semibold text-[#101f17]">
                   Account Role Option
                 </label>
@@ -401,7 +257,7 @@ const handleGoogleSignIn = async () => {
                     <span>Campus Staff</span>
                   </button>
                 </div>
-              </div>}
+              </div>
 
               {/* Login with Google Account */}
               <div className="flex flex-col gap-2 pt-1">
@@ -463,7 +319,7 @@ const handleGoogleSignIn = async () => {
                     required
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder={loginRole === 'student' ? 'name@university.edu' : 'staff@university.edu'}
+                    placeholder="Enter your email address"
                     className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-[#d5e7da] bg-white text-[#101f17] text-[14px] placeholder:text-[#717973] focus:outline-none focus:ring-2 focus:ring-[#012d1d] transition-all"
                   />
                 </div>
@@ -670,7 +526,7 @@ const handleGoogleSignIn = async () => {
                 </div>
               </div>
 
-              {!isSupabaseConfigured ? <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1">
                 <label className="text-[13px] font-semibold text-[#101f17]">Account Role</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -703,7 +559,7 @@ const handleGoogleSignIn = async () => {
                     </div>
                   </button>
                 </div>
-              </div> : <p className="text-xs text-[#717973]">New accounts start with student access. Staff access is assigned by a campus administrator.</p>}
+              </div>
 
               <div className="flex flex-col gap-1">
                 <label className="text-[13px] font-semibold text-[#101f17]">Primary Campus</label>
@@ -712,8 +568,8 @@ const handleGoogleSignIn = async () => {
                   onChange={(e) => setSignupCampus(e.target.value as CampusId)}
                   className="w-full px-3 py-2 rounded-xl border border-[#d5e7da] bg-white text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
                 >
-                  <option value="main-campus">University Campus</option>
-                  
+                  <option value="main-campus">Main Campus</option>
+                  <option value="medical-center">Health Sciences &amp; Medical Center</option>
                 </select>
               </div>
 
@@ -831,11 +687,11 @@ const handleGoogleSignIn = async () => {
       {/* Footer Info */}
       <footer className="w-full border-t border-[#e0f2e6] bg-white/50 px-6 py-4 text-center text-xs text-[#717973]">
         <div className="max-w-md mx-auto flex items-center justify-center gap-4 flex-wrap">
-          <span>FindSync campus network</span>
+          <span>Official FindSync Institutional Campus Network</span>
           <span>·</span>
           <span>Encrypted Session</span>
           <span>·</span>
-          <span>University Campus</span>
+          <span>FindSync</span>
         </div>
       </footer>
     </div>

@@ -16,49 +16,25 @@ import { AuthModal } from './components/AuthModal';
 import { HelpSupportModal } from './components/HelpSupportModal';
 import { TermsPrivacyModal } from './components/TermsPrivacyModal';
 import { LoginView } from './components/LoginView';
+import { LiveCampusRadarModal } from './components/LiveCampusRadarModal';
 import { reverseGeocodeUniversity } from './services/universityLocationService';
-import { isSupabaseConfigured, supabase, testSupabaseConnection } from './lib/supabase';
+import { supabase, testSupabaseConnection, isSupabaseConfigured } from './lib/supabase';
 import {
   seedInitialSupabaseDataIfEmpty,
   subscribeToSupabaseItems,
   saveItemToSupabase,
+  updateItemInSupabase,
   saveClaimToSupabase,
   subscribeToSupabaseClaims,
+  getOrCreateUserProfile,
+  signOutFromSupabase,
+  fetchUserNotificationsFromSupabase,
 } from './services/supabaseService';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-  if (isSupabaseConfigured) return null;
-  try {
-    const stored = localStorage.getItem('findsync_user_session');
-    if (stored) {
-      const user = JSON.parse(stored) as UserProfile;
-      const legacyDemo = user.name === 'Maya Lin' || user.email === 'maya.lin@example.edu' || user.email === 'maya.lin@gmail.com';
-      if (legacyDemo) {
-        localStorage.removeItem('findsync_user_session');
-        return null;
-      }
-      return user;
-    }
-  } catch {
-    // Ignore invalid saved session
-  }
-  return null;
-});
-
-  const [userRole, setUserRole] = useState<'student' | 'staff'>(() => {
-    if (isSupabaseConfigured) return 'student';
-    try {
-      const stored = localStorage.getItem('findsync_user_session');
-      if (stored) {
-        const u = JSON.parse(stored);
-        if (u.role === 'staff' || u.role === 'admin') return 'staff';
-      }
-    } catch {
-      // ignore
-    }
-    return 'student';
-  });
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [userRole, setUserRole] = useState<'student' | 'staff'>('student');
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   const [activeTab, setActiveTab] = useState<ViewTab>('home');
   const [selectedCampus, setSelectedCampus] = useState<CampusId>('main-campus');
@@ -68,6 +44,7 @@ export default function App() {
   const [matchCase, setMatchCase] = useState<MatchCase | null>(CURRENT_MATCH_CASE);
   const [claimTracking, setClaimTracking] = useState<ClaimTracking | null>(INITIAL_CLAIM_TRACKING);
   const [isReportFoundOpen, setIsReportFoundOpen] = useState(false);
+  const [isLiveRadarOpen, setIsLiveRadarOpen] = useState(false);
   const [isCampusDeskOpen, setIsCampusDeskOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -77,24 +54,117 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Initialize Supabase connection and real-time listeners on mount
+  // Initialize Supabase Auth state, connection, and real-time listeners on mount
   useEffect(() => {
+    let isMounted = true;
+
     testSupabaseConnection();
     seedInitialSupabaseDataIfEmpty();
 
+    // 1. Initial Auth Session Restoration & Verification
+    const restoreSession = async () => {
+      try {
+        if (!isSupabaseConfigured) {
+          // In disconnected dev/preview fallback, check saved session or allow quick start
+          const stored = localStorage.getItem('findsync_user_session');
+          if (stored && isMounted) {
+            try {
+              const u = JSON.parse(stored) as UserProfile;
+              if (u.name === 'Maya Lin' || u.email === 'maya.lin@example.edu' || u.email === 'maya.lin@gmail.com') {
+                localStorage.removeItem('findsync_user_session');
+                setIsAuthChecking(false);
+                return;
+              }
+              setCurrentUser(u);
+              setUserRole(u.role === 'staff' || u.role === 'admin' ? 'staff' : 'student');
+            } catch {
+              // ignore
+            }
+          }
+          if (isMounted) setIsAuthChecking(false);
+          return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && isMounted) {
+          const profile = await getOrCreateUserProfile(session.user);
+          if (isMounted) {
+            setCurrentUser(profile);
+            setUserRole(profile.role === 'staff' || profile.role === 'admin' ? 'staff' : 'student');
+          }
+        }
+      } catch (err) {
+        console.warn('Initial session check note:', err);
+      } finally {
+        if (isMounted) {
+          setIsAuthChecking(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    // 2. Real-time Auth State Subscription
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
+      if (session?.user) {
+        try {
+          const profile = await getOrCreateUserProfile(session.user);
+          if (isMounted) {
+            setCurrentUser(profile);
+            setUserRole(profile.role === 'staff' || profile.role === 'admin' ? 'staff' : 'student');
+            setIsAuthChecking(false);
+
+            // Clean OAuth redirect fragments from URL
+            if (window.location.hash || window.location.search.includes('code=')) {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          }
+        } catch (e) {
+          console.warn('Profile resolution on auth state change note:', e);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        if (isMounted) {
+          setCurrentUser(null);
+          setUserRole('student');
+          setIsAuthChecking(false);
+          try {
+            localStorage.removeItem('findsync_user_session');
+          } catch {
+            // ignore
+          }
+        }
+      }
+    });
+
+    // 3. Real-time Data Subscriptions
     const unsubItems = subscribeToSupabaseItems((updatedItems) => {
-      setItems(updatedItems);
+      if (isMounted) setItems(updatedItems);
     });
 
     const unsubClaims = subscribeToSupabaseClaims((updatedClaim) => {
-      setClaimTracking(updatedClaim);
+      if (isMounted) setClaimTracking(updatedClaim);
     });
 
     return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
       unsubItems();
       unsubClaims();
     };
   }, []);
+
+  // Sync user notifications when authenticated user changes
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchUserNotificationsFromSupabase(currentUser.id).then((liveNotifs) => {
+        if (liveNotifs && liveNotifs.length > 0) {
+          setNotifications(liveNotifs);
+        }
+      });
+    }
+  }, [currentUser?.id]);
 
   // Enforce role-based access control: regular students cannot access Admin Portal
   useEffect(() => {
@@ -143,14 +213,9 @@ export default function App() {
       showNotificationToast('Location is not available in this browser.');
       return;
     }
-
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        });
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
       });
       setHasDetectedLocation(true);
       setDetectedUniversity(null);
@@ -158,32 +223,28 @@ export default function App() {
       setDetectedUniversity(name);
       showNotificationToast(name ? `Nearby university identified: ${name}` : 'No nearby university was found for this GPS location.');
     } catch (error) {
-      const message = error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+      showNotificationToast(code === 1
         ? 'Location permission was denied. Allow location access in your browser to identify a nearby university.'
-        : 'Could not determine your location. Check GPS or network access and try again.';
-      showNotificationToast(message);
+        : 'Could not determine your location. Check GPS or network access and try again.');
     }
   };
 
   const handleReportLostCreated = async (newItem: Item) => {
     setItems((prev) => [newItem, ...prev]);
-    try {
-      await saveItemToSupabase(newItem);
-      showNotificationToast(`Lost report ${newItem.reportCode} created successfully.`);
-    } catch (error) {
-      setItems((prev) => prev.filter((item) => item.id !== newItem.id));
-      showNotificationToast(error instanceof Error ? error.message : 'Could not save the lost report.');
+    showNotificationToast(`Lost report ${newItem.reportCode} created & broadcasting to campus matching engine.`);
+    const result = await saveItemToSupabase(newItem, currentUser?.id);
+    if (result.error) {
+      showNotificationToast(`Note: ${result.error}`);
     }
   };
 
   const handleReportFoundCreated = async (newItem: Item) => {
     setItems((prev) => [newItem, ...prev]);
-    try {
-      await saveItemToSupabase(newItem);
-      showNotificationToast(`Found item ${newItem.reportCode} logged into ${newItem.binNumber}.`);
-    } catch (error) {
-      setItems((prev) => prev.filter((item) => item.id !== newItem.id));
-      showNotificationToast(error instanceof Error ? error.message : 'Could not save the found item.');
+    showNotificationToast(`Found item ${newItem.reportCode} logged into ${newItem.binNumber}. Match scan initiated.`);
+    const result = await saveItemToSupabase(newItem, currentUser?.id);
+    if (result.error) {
+      showNotificationToast(`Note: ${result.error}`);
     }
   };
 
@@ -201,33 +262,26 @@ export default function App() {
       officeLocation: '',
       estimatedVerification: '',
     };
-    try {
-      await saveClaimToSupabase(updatedClaim);
-      setClaimTracking(updatedClaim);
-      setMatchCase((prev) => prev ? ({ ...prev, status: 'claim_submitted' }) : prev);
-      showNotificationToast(`Claim ${claimId} submitted for review.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not save the claim.';
-      showNotificationToast(message);
-      throw new Error(message);
-    }
+    setClaimTracking(updatedClaim);
+    setMatchCase((prev) => prev ? ({
+      ...prev,
+      status: 'claim_submitted',
+    }) : prev);
+    showNotificationToast(`Claim ${claimId} submitted for review.`);
+    await saveClaimToSupabase(updatedClaim, matchCase.foundItem.id);
   };
 
   const handleApproveClaimByStaff = async () => {
     if (!claimTracking) return;
     const updatedClaim: ClaimTracking = {
       ...claimTracking,
-      currentStep: 5, // Handover stage
+      currentStep: 5,
       status: 'handover_ready',
       updatedAgo: 'Just now',
     };
-    try {
-      await saveClaimToSupabase(updatedClaim, true);
-      setClaimTracking(updatedClaim);
-      showNotificationToast('Claim approved and ready for handover.');
-    } catch (error) {
-      showNotificationToast(error instanceof Error ? error.message : 'Could not update the claim.');
-    }
+    setClaimTracking(updatedClaim);
+    showNotificationToast('Claim approved and ready for handover.');
+    await saveClaimToSupabase(updatedClaim, matchCase?.foundItem.id);
   };
 
   const handleMarkAllNotificationsRead = () => {
@@ -246,10 +300,6 @@ export default function App() {
   };
 
   const handleSwitchUser = (user: UserProfile) => {
-    if (isSupabaseConfigured) {
-      showNotificationToast('Use the sign-in screen to change authenticated accounts.');
-      return;
-    }
     setCurrentUser(user);
     const role = user.role === 'staff' || user.role === 'admin' ? 'staff' : 'student';
     setUserRole(role);
@@ -261,37 +311,10 @@ export default function App() {
     showNotificationToast(`Logged in as ${user.name} (${user.role.toUpperCase()})`);
   };
 
-  const handleProfileUpdated = (user: UserProfile) => {
-    setCurrentUser(user);
-    if (!isSupabaseConfigured) {
-      try {
-        localStorage.setItem('findsync_user_session', JSON.stringify(user));
-        const stored = localStorage.getItem('findsync_registered_users');
-        const parsed: unknown = stored ? JSON.parse(stored) : [];
-        if (Array.isArray(parsed)) {
-          const alreadyRegistered = parsed.some((entry) =>
-            entry && typeof entry === 'object' && 'id' in entry && entry.id === user.id
-          );
-          const next = alreadyRegistered
-            ? parsed.map((entry) => entry && typeof entry === 'object' && 'id' in entry && entry.id === user.id ? user : entry)
-            : [...parsed, user];
-          localStorage.setItem('findsync_registered_users', JSON.stringify(next));
-        } else {
-          localStorage.setItem('findsync_registered_users', JSON.stringify([user]));
-        }
-      } catch {
-        // Ignore local demo storage errors.
-      }
-    }
-    showNotificationToast('Profile settings saved.');
-  };
-
   const handleLogout = async () => {
+    await signOutFromSupabase();
     setCurrentUser(null);
-    if (isSupabaseConfigured) {
-      const { error } = await supabase.auth.signOut();
-      if (error) showNotificationToast(`Could not sign out: ${error.message}`);
-    }
+    setUserRole('student');
     try {
       localStorage.removeItem('findsync_user_session');
     } catch {
@@ -303,8 +326,20 @@ export default function App() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // CRITICAL: Unauthenticated users see the Login interface first.
-  // No main navigation or private reports are displayed before authentication.
+  // Render authenticating screen while restoring session on initial load
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-[#fbfdf9] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-[#e6f8eb] text-[#012d1d] flex items-center justify-center mb-4 shadow-sm border border-[#c1ecd4] animate-pulse">
+          <span className="material-symbols-outlined text-3xl">verified_user</span>
+        </div>
+        <h2 className="text-xl font-bold text-[#012d1d]">Verifying Campus Session...</h2>
+        <p className="text-sm text-[#414844] mt-1">Connecting to FindSync Institutional Auth</p>
+      </div>
+    );
+  }
+
+  // Unauthenticated users see the Login interface first
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-[#fbfdf9]">
@@ -351,18 +386,18 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         selectedCampus={selectedCampus}
-        detectedUniversity={detectedUniversity}
-        hasDetectedLocation={hasDetectedLocation}
-        onDetectUniversity={handleDetectUniversity}
         onSelectCampus={handleSelectCampus}
         onOpenCampusDesk={() => setIsCampusDeskOpen(true)}
+        onOpenLiveRadar={() => setIsLiveRadarOpen(true)}
         onOpenReportFound={() => setIsReportFoundOpen(true)}
         onOpenNotificationsModal={() => setIsNotificationsOpen(true)}
         onOpenAuthModal={() => setIsAuthOpen(true)}
+        detectedUniversity={detectedUniversity}
+        hasDetectedLocation={hasDetectedLocation}
+        onDetectUniversity={handleDetectUniversity}
         onOpenHelp={() => setIsHelpOpen(true)}
         matchesCount={matchCase ? 1 : 0}
         unreadNotifications={unreadCount}
-        notifications={notifications}
         userRole={userRole}
         currentUser={currentUser}
         onLogout={handleLogout}
@@ -424,12 +459,12 @@ export default function App() {
           {activeTab === 'report-lost' && (
             <ReportLostView
               initialCampusId={selectedCampus}
-              onUniversityDetected={handleUniversityDetected}
-              currentUser={currentUser}
               items={items}
+              currentUser={currentUser}
               onReportCreated={handleReportLostCreated}
               onNavigateToTab={handleSelectTab}
               onNavigateToMatch={() => handleSelectTab('potential-matches')}
+              onUniversityDetected={handleUniversityDetected}
             />
           )}
 
@@ -449,8 +484,8 @@ export default function App() {
             <AdminPortalView
               items={items}
               matchCase={matchCase}
-              hasActiveClaim={Boolean(claimTracking)}
               claimTracking={claimTracking}
+              hasActiveClaim={Boolean(claimTracking)}
               onApproveClaim={handleApproveClaimByStaff}
               onNavigateToMatch={() => handleSelectTab('potential-matches')}
               currentUser={currentUser || undefined}
@@ -478,9 +513,9 @@ export default function App() {
         isOpen={isReportFoundOpen}
         onClose={() => setIsReportFoundOpen(false)}
         onItemFoundCreated={handleReportFoundCreated}
-        onUniversityDetected={handleUniversityDetected}
-        currentUser={currentUser}
         items={items}
+        currentUser={currentUser}
+        onUniversityDetected={handleUniversityDetected}
       />
 
       {/* Campus Handover Desks & Dispatch Info Modal */}
@@ -505,14 +540,16 @@ export default function App() {
       />
 
       {/* Campus Single Sign-On and User Profile Modal */}
-      {currentUser && <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        currentUser={currentUser}
-        onSwitchUser={handleSwitchUser}
-        onProfileUpdated={handleProfileUpdated}
-        onLogout={handleLogout}
-      />}
+      {currentUser && (
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          currentUser={currentUser}
+          onSwitchUser={handleSwitchUser}
+          onProfileUpdated={setCurrentUser}
+          onLogout={handleLogout}
+        />
+      )}
 
       {/* Help, FAQs & Campus Guidance Modal */}
       <HelpSupportModal
@@ -529,6 +566,25 @@ export default function App() {
         isOpen={isTermsOpen}
         onClose={() => setIsTermsOpen(false)}
         initialTab={termsInitialTab}
+      />
+
+      {/* Real-time Campus Leaflet Radar Modal */}
+      <LiveCampusRadarModal
+        isOpen={isLiveRadarOpen}
+        onClose={() => setIsLiveRadarOpen(false)}
+        initialCampusId={selectedCampus}
+        items={items}
+        onSelectItem={(_item) => {
+          setActiveTab('explore');
+        }}
+        onOpenReportLost={() => {
+          setIsLiveRadarOpen(false);
+          setActiveTab('report-lost');
+        }}
+        onOpenReportFound={() => {
+          setIsLiveRadarOpen(false);
+          setIsReportFoundOpen(true);
+        }}
       />
     </div>
   );

@@ -7,6 +7,7 @@ interface HeaderProps {
   activeTab: ViewTab;
   onSelectTab: (tab: ViewTab) => void;
   onOpenCampusDesk: () => void;
+  onOpenLiveRadar?: () => void;
   onOpenReportFound: () => void;
   onOpenNotificationsModal?: () => void;
   onOpenAuthModal?: () => void;
@@ -29,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onSelectTab,
   onOpenCampusDesk,
+  onOpenLiveRadar,
   onOpenReportFound,
   onOpenNotificationsModal,
   onOpenAuthModal,
@@ -237,6 +239,19 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Utility Actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Live Campus Radar Button */}
+          {onOpenLiveRadar && (
+            <button
+              type="button"
+              onClick={onOpenLiveRadar}
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#012d1d] text-white hover:bg-[#1b4332] transition-colors text-[13px] font-bold cursor-pointer shadow-xs border border-[#1b4332]"
+              title="Open Leaflet Real-time Campus Radar"
+            >
+              <span className="material-symbols-outlined text-lg text-[#85f8c4] animate-pulse">radar</span>
+              <span>Live Radar</span>
+            </button>
+          )}
+
           {/* Campus Desk Button */}
           <button
             type="button"

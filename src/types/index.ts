@@ -119,9 +119,10 @@ export interface MatchCase {
 
 export interface ClaimTracking {
   claimId: string;
+  itemId?: string;
   itemTitle: string;
   reportNumber: string;
-  status: 'under_review' | 'approved' | 'handover_ready' | 'closed';
+  status: 'under_review' | 'approved' | 'rejected' | 'handover_ready' | 'closed';
   currentStep: number; // 1 to 6
   updatedAgo: string;
   submittedProof: string;

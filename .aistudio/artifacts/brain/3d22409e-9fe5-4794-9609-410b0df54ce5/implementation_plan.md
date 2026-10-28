@@ -122,5 +122,11 @@ Expand FindSync from a single building prototype into a comprehensive, multi-fac
 9. **Role Isolation**: Strict role enforcement preventing student/finder logins from seeing or accessing Officer View or the Admin Portal.
 10. **Admin Panel**: Officer Ramirez staff adjudication console with claim approval/rejection/evidence requests, item inventory indexed by custody bins, user directory, and immutable chain of custody audit logs.
 11. **Supabase PostgreSQL & Realtime Backend**: Integrated `@supabase/supabase-js` client SDK with live database support for items and claims, realtime subscriptions, automated seeding, comprehensive SQL schema in `supabase/schema.sql`, environment variable configurations in `.env.example`, and zero-latency local fallback support.
+12. **FastAPI Backend & Free APIs**: Full RESTful Python service in `api/main.py` bridged with Express (`server.ts` on port 3000), delivering:
+    - **Free AI Matching Engine**: Multi-factor similarity scoring (category, Jaccard token overlap, temporal, and campus corridor geospatial proximity) with Gemini AI integration (`/api/match`).
+    - **Free OpenStreetMap Geocoding API**: Reverse geocoding and campus building coordinate lookups (`/api/geocode`).
+    - **Free Campus Recovery Stats API**: Live analytics for recovery rates, resolution turnaround, and desk custody volumes (`/api/stats`).
+    - **Interactive Swagger Documentation**: Accessible at `/docs` and `/redoc`.
+
 
 

@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Item, ItemCategory, ViewTab, CampusId, FacilitySector, ItemLocationCoordinates } from '../types';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
+import { Item, ItemCategory, ViewTab, CampusId, FacilitySector, ItemLocationCoordinates, UserProfile } from '../types';
 import { CameraCaptureWidget } from './CameraCaptureWidget';
-import { CampusMapPicker } from './CampusMapPicker';
 import {
   getCampusConfigurations,
   getCampusById,
@@ -10,65 +9,56 @@ import {
   CampusLocationArea,
 } from '../data/campusConfig';
 
+const CampusMapPicker = lazy(() =>
+  import('./CampusMapPicker').then((module) => ({ default: module.CampusMapPicker }))
+);
+
 interface ReportLostViewProps {
   initialCampusId?: CampusId;
   onReportCreated: (newItem: Item) => void;
   onNavigateToTab: (tab: ViewTab) => void;
   onNavigateToMatch: (caseId?: string) => void;
+  onUniversityDetected?: (name: string | null) => void;
+  currentUser: UserProfile;
   items?: Item[];
 }
 
 export const ReportLostView: React.FC<ReportLostViewProps> = ({
-  initialCampusId = 'sage-bhopal',
+  initialCampusId = 'main-campus',
   onReportCreated,
   onNavigateToTab,
   onNavigateToMatch,
+  onUniversityDetected,
+  currentUser,
   items = [],
 }) => {
   const [activeStep, setActiveStep] = useState<number>(1);
-  const [title, setTitle] = useState('MacBook Air M2 (Space Gray)');
-  const [category, setCategory] = useState<ItemCategory>('Electronics');
-  const [brand, setBrand] = useState('Apple');
-  const [model, setModel] = useState('14-inch Space Gray M2 2023');
-  const [colorway, setColorway] = useState('Matte Black');
-  const [description, setDescription] = useState(
-    'Minor hairline scuff on bottom casing near vent, matte finish, black silicone keyboard membrane installed.'
-  );
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState<ItemCategory>('Other Asset');
+  const [brand, setBrand] = useState('');
+  const [model, setModel] = useState('');
+  const [colorway, setColorway] = useState('');
+  const [description, setDescription] = useState('');
 
-  // Photo state
-  const [photoUrl, setPhotoUrl] = useState<string | null>(
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuD8TN1h31vRiYwKoKD-LlLEYTr8dpaQr7ifc3TqEFWL9EcCi-PyG2CCSayHNfWDjFnp3ffW8kJr8GMnmp9ZU8cyXj0k52r6nobBt0au-3rN25lnGfngZ3xEU-COQI7uIr-xaLGOVCBy9J1rjCSsecVIs_Bslu_BfLppkHPgLDDeLgznu8mPIS9eOyNrptk_HluwVzcEKmTw_g6ROj-VKkW056K_heJHbxT2cVx8ehiarqVrwjFw3froQQ'
-  );
-
-  // Campus & Configurable Location
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const allCampuses = getCampusConfigurations();
-  const [campusId, setCampusId] = useState<CampusId>(
-    initialCampusId === 'all-campuses' ? 'sage-bhopal' : initialCampusId
-  );
+  const [campusId, setCampusId] = useState<CampusId>(initialCampusId === 'all-campuses' ? 'main-campus' : initialCampusId);
   const currentCampusConfig = getCampusById(campusId);
-
-  const [locationCategory, setLocationCategory] = useState<CampusAreaCategory | 'all'>('academic');
-  const [building, setBuilding] = useState('Central University Library');
+  const [locationCategory, setLocationCategory] = useState<CampusAreaCategory | 'all'>('other');
+  const [building, setBuilding] = useState('');
   const [isOtherLocation, setIsOtherLocation] = useState(false);
   const [otherLocationDescription, setOtherLocationDescription] = useState('');
   const [facilitySector, setFacilitySector] = useState<FacilitySector>('academic');
-  const [dateLost, setDateLost] = useState('2024-10-14');
-  const [timeBracket, setTimeBracket] = useState('Midday (11:30 AM – 02:00 PM)');
-  const [shuttleLine, setShuttleLine] = useState('Campus Transit Shuttle Bus');
-  const [roomZone, setRoomZone] = useState('Reading Hall 2, near circulation counter');
-  const [pinCoordinates, setPinCoordinates] = useState<string | null>(
-    'Pin: Central University Library (LIB-CENTRAL) · 23.1787° N, 77.4922° E'
-  );
-  const [locationCoordinates, setLocationCoordinates] = useState<ItemLocationCoordinates | null>({
-    lat: 23.1787,
-    lng: 77.4922,
-    formatted: '23.1787° N, 77.4922° E',
-  });
+  const [dateLost, setDateLost] = useState(new Date().toISOString().slice(0, 10));
+  const [timeBracket, setTimeBracket] = useState('');
+  const [shuttleLine, setShuttleLine] = useState('');
+  const [roomZone, setRoomZone] = useState('');
+  const [pinCoordinates, setPinCoordinates] = useState<string | null>(null);
+  const [locationCoordinates, setLocationCoordinates] = useState<ItemLocationCoordinates | null>(null);
 
-  // Confidential Clues
-  const [clue1, setClue1] = useState('Small holographic Yosemite sticker on base corner; serial ends in 9482');
-  const [clue2, setClue2] = useState('Interior front sleeve contains Caldwell transit card + orange earplug case');
-
+  // Confidential clues must come from the actual owner.
+  const [clue1, setClue1] = useState('');
+  const [clue2, setClue2] = useState('');
   // Alerts
   const [emailAlert, setEmailAlert] = useState(true);
   const [smsAlert, setSmsAlert] = useState(true);
@@ -245,7 +235,7 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
         id: `lost-${Date.now()}`,
         reportCode: `#LR-${Math.floor(1000 + Math.random() * 9000)}`,
         type: 'lost',
-        title: title || 'Lost Asset',
+        title,
         category,
         brand,
         model,
@@ -262,16 +252,14 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
         shuttleLine: facilitySector === 'transit' ? shuttleLine : undefined,
         locationName: resolvedLocationName,
         roomZone: pinCoordinates ? `${roomZone} (${pinCoordinates})` : roomZone,
-        dateLostOrFound: 'Today',
-        timeString: 'Just now',
+        dateLostOrFound: new Date(`${dateLost}T12:00:00`).toLocaleDateString(),
+        timeString: timeBracket || 'Not provided',
         status: 'active_search',
         statusLabel: 'Active Searching',
-        imageUrl:
-          photoUrl ||
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuD8TN1h31vRiYwKoKD-LlLEYTr8dpaQr7ifc3TqEFWL9EcCi-PyG2CCSayHNfWDjFnp3ffW8kJr8GMnmp9ZU8cyXj0k52r6nobBt0au-3rN25lnGfngZ3xEU-COQI7uIr-xaLGOVCBy9J1rjCSsecVIs_Bslu_BfLppkHPgLDDeLgznu8mPIS9eOyNrptk_HluwVzcEKmTw_g6ROj-VKkW056K_heJHbxT2cVx8ehiarqVrwjFw3froQQ',
+        imageUrl: photoUrl || '',
         imageAlt: title,
-        ownerName: 'Maya Lin',
-        ownerId: '#USR-9102-MAYAL',
+        ownerName: currentUser.name,
+        ownerId: currentUser.id,
         confidentialClues: {
           uniqueMark: clue1,
           internalContents: clue2,
@@ -381,7 +369,7 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => onNavigateToMatch('Case #PM-8429')}
+            onClick={() => onNavigateToMatch()}
             className="px-3.5 py-1.5 rounded-lg bg-[#a23e18] text-white text-xs font-bold hover:bg-[#853011] shrink-0 cursor-pointer shadow-xs"
           >
             Review Potential Match →
@@ -908,23 +896,25 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
 
                   {/* Interactive Map Pin Selector */}
                   <div className="pt-2">
-                    <CampusMapPicker
-                      campusId={campusId}
-                      selectedLocationName={isOtherLocation ? otherLocationDescription : building}
-                      onSelectLocation={(name, pinCoord, coordsObj, areaObj) => {
-                        if (areaObj) {
-                          setBuilding(name);
-                          setIsOtherLocation(false);
-                          setLocationCategory(areaObj.category);
-                        } else {
-                          if (!isOtherLocation) {
+                    <Suspense fallback={<div className="h-72 rounded-xl bg-[#e6f8eb] animate-pulse" /> }>
+                      <CampusMapPicker
+                        campusId={campusId}
+                        selectedLocationName={isOtherLocation ? otherLocationDescription : building}
+                        selectedCoordinates={locationCoordinates}
+                        onUniversityDetected={onUniversityDetected}
+                        onSelectLocation={(name, pinCoord, coordsObj, areaObj) => {
+                          if (areaObj) {
+                            setBuilding(name);
+                            setIsOtherLocation(false);
+                            setLocationCategory(areaObj.category);
+                          } else if (!isOtherLocation) {
                             setBuilding(name);
                           }
-                        }
-                        if (pinCoord) setPinCoordinates(pinCoord);
-                        if (coordsObj) setLocationCoordinates(coordsObj);
-                      }}
-                    />
+                          if (pinCoord) setPinCoordinates(pinCoord);
+                          if (coordsObj) setLocationCoordinates(coordsObj);
+                        }}
+                      />
+                    </Suspense>
                   </div>
                 </section>
 
@@ -1001,7 +991,7 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
                       rows={2}
                       value={clue2}
                       onChange={(e) => setClue2(e.target.value)}
-                      placeholder="e.g., Inside zippered pocket: orange earplug case, Caldwell transit card, student ID..."
+                      placeholder="e.g., Inside zippered pocket: orange earplug case, university transit card, student ID..."
                       className="w-full px-4 py-2.5 rounded-lg bg-white border border-[#d5e7da] text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
                     />
                   </div>
@@ -1089,7 +1079,7 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
                   <div className="p-4 rounded-xl bg-[#e6f8eb] border border-[#c1ecd4] flex items-start gap-2.5 text-[#414844]">
                     <span className="material-symbols-outlined text-base mt-0.5 text-[#012d1d]">policy</span>
                     <p className="text-[11px] leading-relaxed">
-                      By submitting this institutional claim, you affirm under the Caldwell University Academic &amp; Community Honor Code that you are the lawful owner or authorized representative of the stated property.
+                      By submitting this report, you confirm that the information is accurate and that you are the owner or authorized representative of the item.
                     </p>
                   </div>
                 </section>
@@ -1133,17 +1123,9 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
                 <span className="text-[18px] font-bold">Lost Report Active &amp; Synced!</span>
               </div>
               <p className="text-[13px] text-[#274e3d] leading-relaxed">
-                Case <strong>#LR-8821</strong> is actively monitored by the Caldwell automated matching engine. We found 1 high-probability potential match turned in at the Student Union Desk.
+                Your report has been saved and is available in your items. Potential matches will appear when a relevant found item is reported.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => onNavigateToMatch('Case #PM-8429')}
-                  className="px-5 py-2.5 rounded-xl bg-[#012d1d] text-white text-[13px] font-bold hover:bg-[#1b4332] shadow-xs cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>View Potential Match (86%)</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
                 <button
                   type="button"
                   onClick={() => onNavigateToTab('my-items')}
@@ -1199,62 +1181,12 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
             </ul>
           </div>
 
-          {/* Recent Campus Turn-ins Widget */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-[#d5e7da] flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#a23e18] text-lg">auto_awesome</span>
-                <h3 className="text-[13px] font-bold text-[#101f17]">Potential Near Matches</h3>
-              </div>
-              <span className="text-[11px] text-[#414844] font-medium">Past 48h</span>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <div
-                onClick={() => onNavigateToMatch('Case #PM-8429')}
-                className="p-3 rounded-lg bg-[#e6f8eb] hover:bg-[#dbede0] transition-all flex items-center gap-3 cursor-pointer border border-[#c1ecd4]"
-              >
-                <div className="w-14 h-14 rounded-lg overflow-hidden bg-[#d5e7da] shrink-0">
-                  <img
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkT8JsP2dWCnQAn9Hg3ALeVR1mmroq3SLIZTf7xfd_-1gH2KwAmQj3T-xlmanwVpXoKMDYL52otUsCUhBIFCOZRFxxC7yZW8vNVkVlLEZBO6Yj_W383kkiijph4RD2oxsBzeAVaXdZz6pag1UhYUKL_kBVg6L1-lOw0Di5ua40SCV4MDxCjDY6ctI95WtUvxMzwG7fiDsK5eE1PhOg9jEZpkHvND7rh3DoanZJfViz84_Y4NHE6-xbcQ"
-                    alt="MacBook Air"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[13px] font-bold text-[#012d1d] truncate">MacBook Air (Midnight)</span>
-                  <span className="text-[11px] text-[#414844]">Found at Student Union 2h ago</span>
-                  <span className="text-[11px] text-[#a23e18] font-bold">92% AI Similarity Score</span>
-                </div>
-              </div>
-
-              <div
-                onClick={() => onNavigateToMatch('Case #PM-8429')}
-                className="p-3 rounded-lg bg-[#e6f8eb] hover:bg-[#dbede0] transition-all flex items-center gap-3 cursor-pointer border border-[#c1ecd4]"
-              >
-                <div className="w-14 h-14 rounded-lg overflow-hidden bg-[#d5e7da] shrink-0">
-                  <img
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4MMoeB6mqQpekxCTyKDTxoGh0l0bz4T5lZzDA_rCE66nhSVRs3JEO56zpdViJnafAPEZW46OsYQ7ucOGtRPxVyTUXws5mUMm67tmnw_iR_tMPr84DngeZyf-oTuB--BmTH2-3TnTAlqQvW8k-efkps3Edzhh568ckJf9x19huGesppQAFTeqsACEHRhixsXwCtjYEahnz5f6FApvStnM1UGetYjyuDEPWNVijmvd_PFGJ3RT9gbMvvg"
-                    alt="iPad Pro"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[13px] font-bold text-[#012d1d] truncate">iPad Pro 11-inch</span>
-                  <span className="text-[11px] text-[#414844]">Found at Main Library 4h ago</span>
-                  <span className="text-[11px] text-[#414844]">64% Match Score</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onNavigateToTab('explore')}
-              className="w-full py-2 rounded-lg bg-[#e0f2e6] text-[#012d1d] text-[12px] font-bold hover:bg-[#d5e7da] transition-colors cursor-pointer"
-            >
-              Check All Unclaimed Laptops
-            </button>
+                    {/* Related reports */}
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-[#d5e7da] flex flex-col gap-3">
+            <h3 className="text-[13px] font-bold text-[#101f17]">Related reports</h3>
+            {duplicateWarnings.length === 0 ? <p className="text-xs text-[#536057]">No closely related found reports are available yet.</p> : duplicateWarnings.map((item) => <button key={item.id} type="button" onClick={() => onNavigateToTab('explore')} className="text-left p-3 rounded-lg bg-[#e6f8eb] border border-[#c1ecd4]"><strong className="block text-sm text-[#012d1d]">{item.title}</strong><span className="text-xs text-[#414844]">{item.locationName} · {item.reportCode}</span></button>)}
           </div>
+
 
           {/* Need In-Person Assistance */}
           <div className="bg-white rounded-xl p-5 flex flex-col gap-2 text-[#101f17] shadow-sm border border-[#d5e7da]">
@@ -1263,11 +1195,10 @@ export const ReportLostView: React.FC<ReportLostViewProps> = ({
               <span>Need In-Person Assistance?</span>
             </div>
             <p className="text-[13px] text-[#414844]">
-              Visit the Student Union Information Desk (Ground Floor, Room 102). Staffed 24/7 for immediate physical check-in.
+              Campus handover locations and hours will appear here after they are configured by staff.
             </p>
             <div className="pt-2 flex items-center justify-between text-[12px] border-t border-[#e0f2e6]">
-              <span className="font-bold text-[#012d1d]">Tel: (555) 019-4820</span>
-              <span className="text-[#a23e18] font-bold underline cursor-pointer">Station Map</span>
+              <span className="font-bold text-[#012d1d]">No contact details configured</span>
             </div>
           </div>
         </div>

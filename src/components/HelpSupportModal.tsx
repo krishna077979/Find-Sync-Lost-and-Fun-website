@@ -21,11 +21,11 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({
   const faqs = [
     {
       q: 'Where are found items physically secured on campus?',
-      a: 'All reported found items are transferred to designated secure custody bins. The primary hub is at the Caldwell Student Union Central Counter #2 (Open 24/7), with secondary pickup stations at the Main Library Circulation Desk and Athletics Center Concierge.',
+      a: 'Open Campus Desk to see handover locations for your selected campus. Confirm opening hours with the desk before traveling.',
     },
     {
-      q: 'How long does Caldwell University hold unclaimed property?',
-      a: 'Under Caldwell Institutional Property Regulation Sec. 4B, high-value and electronic items are held securely in custody bins for 60 calendar days. Standard personal items are held for 30 days before being responsibly donated or transferred according to state university property laws.',
+      q: 'How long are unclaimed items held?',
+      a: 'Holding periods vary by campus and item type. Contact the listed handover desk for the current policy before making a trip.',
     },
     {
       q: 'How does the AI similarity matching engine work?',
@@ -33,7 +33,7 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({
     },
     {
       q: 'What do I need to present when picking up my property?',
-      a: 'You must present an active Caldwell Student, Faculty, or Staff ID card (physical card or Mobile Campus Pass) and successfully verify the confidential covert identifiers (such as serial numbers, passcodes, internal bag contents, or specific scratches) logged in your claim.',
+      a: 'Bring your campus ID if available and be ready to verify details that only the item owner would know. Never share passwords, PINs, or financial details as proof.',
     },
     {
       q: 'What should I do if the AI suggests an incorrect match?',
@@ -77,46 +77,11 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({
           </button>
         </div>
 
-        {/* Quick Contact Banners */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3 rounded-xl bg-[#ecfef1] border border-[#c1ecd4] flex flex-col gap-1">
-            <span className="text-[11px] font-bold uppercase text-[#012d1d] flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">emergency</span>
-              24/7 Police Dispatch
-            </span>
-            <span className="text-[14px] font-mono font-bold text-[#101f17]">(555) 019-2833</span>
-            <span className="text-[11px] text-[#414844]">Emergencies &amp; Urgent Lockup</span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-[#ecfef1] border border-[#c1ecd4] flex flex-col gap-1">
-            <span className="text-[11px] font-bold uppercase text-[#012d1d] flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">desk</span>
-              Central Desk Counter
-            </span>
-            <span className="text-[14px] font-mono font-bold text-[#101f17]">(555) 019-2834</span>
-            <span className="text-[11px] text-[#414844]">Student Union Suite 110</span>
-          </div>
-
-          <div className="p-3 rounded-xl bg-[#ecfef1] border border-[#c1ecd4] flex flex-col gap-1">
-            <span className="text-[11px] font-bold uppercase text-[#012d1d] flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">schedule</span>
-              Handover Hours
-            </span>
-            <span className="text-[14px] font-bold text-[#101f17]">24 Hours / 7 Days</span>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenCampusDesk();
-              }}
-              className="text-[11px] text-[#a23e18] font-bold hover:underline text-left cursor-pointer"
-            >
-              View All 5 Desk Locations →
-            </button>
-          </div>
+                <div className="rounded-xl border border-[#c1ecd4] bg-[#ecfef1] p-4 text-sm text-[#536057]">
+          Campus support contact details have not been configured. Use the desk directory if your campus has added handover locations.
+          <button type="button" onClick={() => { onClose(); onOpenCampusDesk(); }} className="ml-2 font-bold text-[#012d1d] underline">Open desk directory</button>
         </div>
-
-        {/* FAQ Accordion */}
+{/* FAQ Accordion */}
         <div className="flex flex-col gap-3">
           <h3 className="text-[15px] font-bold text-[#012d1d] flex items-center gap-1.5">
             <span className="material-symbols-outlined text-base">quiz</span>
@@ -162,7 +127,7 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({
           {ticketSent ? (
             <div className="p-3 bg-[#c1ecd4] rounded-lg text-[#002114] text-xs font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-base">check_circle</span>
-              <span>Inquiry dispatched to Officer Ramirez. An officer will reply to your Caldwell email shortly.</span>
+              <span>Inquiry recorded. Check the email address on your profile for a reply.</span>
             </div>
           ) : (
             <form onSubmit={handleSendTicket} className="flex flex-col gap-2.5">

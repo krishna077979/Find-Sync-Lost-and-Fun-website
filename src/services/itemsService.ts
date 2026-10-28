@@ -1,127 +1,143 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  onSnapshot,
-  query,
-  orderBy,
-} from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+
+import { supabase } from '../lib/supabase';
 import { Item, ClaimTracking } from '../types';
-import { INITIAL_ITEMS, INITIAL_CLAIM_TRACKING } from '../data/mockData';
 
-const ITEMS_COLLECTION = 'items';
-const CLAIMS_COLLECTION = 'claims';
+const toItem = (row: any): Item => ({
+  id: row.id,
+  reportCode: row.report_code ?? `#L-${String(row.id).slice(-4)}`,
+  ownerId: row.reporter_id,
+  type: row.item_type,
+  title: row.title,
+  category: row.category,
+  brand: row.brand ?? '',
+  model: row.model ?? '',
+  colorway: row.color ?? '',
+  description: row.description,
+  campusId: row.campus_id ?? '',
+  locationName: row.location_description ?? '',
+  dateLostOrFound: row.incident_at ?? row.date_lost_or_found ?? '',
+  timeString: row.time_string ?? 'N/A',
+  status: row.status,
+  imageUrl: row.image_url ?? '',
+  imageAlt: row.image_alt ?? row.title ?? 'Item image',
+  createdAt: row.created_at,
+});
 
-/**
- * Seed initial sample items if Firestore collection is empty
- */
+const toItemRow = (item: Item) => ({
+  reporter_id: (item as any).reporterId,
+  campus_id: (item as any).campusId || null,
+  item_type: (item as any).type,
+  title: item.title,
+  category: item.category,
+  brand: item.brand || null,
+  model: item.model || null,
+  color: (item as any).colorway || null,
+  description: item.description,
+  location_description: (item as any).locationName || null,
+  incident_at: (item as any).dateLostOrFound || null,
+  status: item.status,
+});
+
 export async function seedInitialItemsIfEmpty(): Promise<void> {
-  try {
-    const snap = await getDocs(collection(db, ITEMS_COLLECTION));
-    if (snap.empty) {
-      // Seed initial mock items
-      for (const item of INITIAL_ITEMS) {
-        await setDoc(doc(db, ITEMS_COLLECTION, item.id), item);
-      }
-    }
-  } catch (err) {
-    console.warn('Initial seeding note:', err);
-  }
+  // Production items should come from real user reports, not mock data.
 }
 
-/**
- * Listen for real-time items updates from Firestore
- */
 export function subscribeToItems(
   onUpdate: (items: Item[]) => void,
   onError?: (err: Error) => void
 ): () => void {
-  const q = query(collection(db, ITEMS_COLLECTION));
+  let active = true;
 
-  const unsubscribe = onSnapshot(
-    q,
-    (snapshot) => {
-      if (!snapshot.empty) {
-        const itemsList: Item[] = [];
-        snapshot.forEach((docSnap) => {
-          itemsList.push(docSnap.data() as Item);
-        });
-        // Sort newest first
-        itemsList.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        onUpdate(itemsList);
-      } else {
-        // Fallback to initial items while seeding
-        onUpdate(INITIAL_ITEMS);
-      }
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.GET, ITEMS_COLLECTION);
-      if (onError) onError(error);
+  const loadItems = async () => {
+    const { data, error } = await supabase
+      .from('items')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!active) return;
+
+    if (error) {
+      onError?.(new Error(error.message));
+      return;
     }
-  );
 
-  return unsubscribe;
+    onUpdate((data ?? []).map(toItem));
+  };
+
+  void loadItems();
+
+  const channel = supabase
+    .channel('findsync-items')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'items' },
+      () => void loadItems()
+    )
+    .subscribe();
+
+  return () => {
+    active = false;
+    void supabase.removeChannel(channel);
+  };
 }
 
-/**
- * Save a newly created item (lost report or turned-in found item) to Firestore
- */
 export async function saveItemToFirestore(item: Item): Promise<void> {
-  try {
-    await setDoc(doc(db, ITEMS_COLLECTION, item.id), item);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `${ITEMS_COLLECTION}/${item.id}`);
+  const { error } = await supabase
+    .from('items')
+    .insert(toItemRow(item));
+
+  if (error) {
+    throw new Error(`Could not save item: ${error.message}`);
   }
 }
 
-/**
- * Update an item's custody status, bin, or match in Firestore
- */
 export async function updateItemInFirestore(
   itemId: string,
   updates: Partial<Item>
 ): Promise<void> {
-  try {
-    await updateDoc(doc(db, ITEMS_COLLECTION, itemId), updates);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `${ITEMS_COLLECTION}/${itemId}`);
+  const row: Record<string, unknown> = {};
+
+  if (updates.title !== undefined) row.title = updates.title;
+  if (updates.category !== undefined) row.category = updates.category;
+  if (updates.brand !== undefined) row.brand = updates.brand || null;
+  if (updates.model !== undefined) row.model = updates.model || null;
+  if (updates.description !== undefined) row.description = updates.description;
+  if (updates.status !== undefined) row.status = updates.status;
+
+  if ((updates as any).colorway !== undefined) {
+    row.color = (updates as any).colorway || null;
+  }
+  if ((updates as any).locationName !== undefined) {
+    row.location_description = (updates as any).locationName || null;
+  }
+  if ((updates as any).dateLostOrFound !== undefined) {
+    row.incident_at = (updates as any).dateLostOrFound || null;
+  }
+
+  const { error } = await supabase
+    .from('items')
+    .update(row)
+    .eq('id', itemId);
+
+  if (error) {
+    throw new Error(`Could not update item: ${error.message}`);
   }
 }
 
-/**
- * Save a claim submission to Firestore
- */
-export async function saveClaimToFirestore(claim: ClaimTracking): Promise<void> {
-  try {
-    await setDoc(doc(db, CLAIMS_COLLECTION, claim.claimId), claim);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `${CLAIMS_COLLECTION}/${claim.claimId}`);
-  }
+export async function saveClaimToFirestore(
+  claim: ClaimTracking
+): Promise<void> {
+  throw new Error(
+    'Claim saving needs to be mapped to the Supabase claims schema before use.'
+  );
 }
 
-/**
- * Subscribe to claims
- */
 export function subscribeToClaims(
   onUpdate: (claim: ClaimTracking) => void
 ): () => void {
-  const unsub = onSnapshot(
-    doc(db, CLAIMS_COLLECTION, INITIAL_CLAIM_TRACKING.claimId),
-    (docSnap) => {
-      if (docSnap.exists()) {
-        onUpdate(docSnap.data() as ClaimTracking);
-      } else {
-        onUpdate(INITIAL_CLAIM_TRACKING);
-      }
-    },
-    (err) => {
-      console.warn('Claims sync notice:', err);
-    }
+  console.warn(
+    'Claim subscription is not connected yet. Implement it against the Supabase claims schema.'
   );
-  return unsub;
+
+  return () => {};
 }

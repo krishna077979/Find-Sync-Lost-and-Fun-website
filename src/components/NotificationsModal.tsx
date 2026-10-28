@@ -209,7 +209,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
         {/* Footer */}
         <div className="pt-2 border-t border-[#e0f2e6] flex items-center justify-between text-[12px] text-[#717973]">
-          <span>Notifications delivered from Caldwell Campus Police &amp; Safety Hub</span>
+          <span>FindSync campus lost and found notifications</span>
           <button
             type="button"
             onClick={onClose}

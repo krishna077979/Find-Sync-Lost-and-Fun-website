@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Item, ItemCategory, CampusId, FacilitySector, ItemLocationCoordinates } from '../types';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
+import { Item, ItemCategory, CampusId, FacilitySector, ItemLocationCoordinates, UserProfile } from '../types';
 import { CameraCaptureWidget } from './CameraCaptureWidget';
-import { CampusMapPicker } from './CampusMapPicker';
 import {
   getCampusConfigurations,
   getCampusById,
@@ -9,48 +8,47 @@ import {
   CampusAreaCategory,
 } from '../data/campusConfig';
 
+const CampusMapPicker = lazy(() =>
+  import('./CampusMapPicker').then((module) => ({ default: module.CampusMapPicker }))
+);
+
 interface ReportFoundModalProps {
   isOpen: boolean;
   onClose: () => void;
   onItemFoundCreated: (newItem: Item) => void;
+  onUniversityDetected?: (name: string | null) => void;
   items?: Item[];
+  currentUser: UserProfile;
 }
 
 export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
   isOpen,
   onClose,
   onItemFoundCreated,
+  onUniversityDetected,
   items = [],
+  currentUser,
 }) => {
   const allCampuses = getCampusConfigurations();
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<ItemCategory>('Electronics');
-  const [campusId, setCampusId] = useState<CampusId>('sage-bhopal');
+  const [category, setCategory] = useState<ItemCategory>('Other Asset');
+  const [campusId, setCampusId] = useState<CampusId>('main-campus');
   const currentCampusConfig = getCampusById(campusId);
-
-  const [locationCategory, setLocationCategory] = useState<CampusAreaCategory | 'all'>('canteen');
+  const [locationCategory, setLocationCategory] = useState<CampusAreaCategory | 'all'>('other');
   const [facilitySector, setFacilitySector] = useState<FacilitySector>('student_life');
-  const [locationName, setLocationName] = useState('Main Campus Food Court & Canteen');
+  const [locationName, setLocationName] = useState('');
   const [isOtherLocation, setIsOtherLocation] = useState(false);
   const [otherLocationDescription, setOtherLocationDescription] = useState('');
   const [shuttleLine, setShuttleLine] = useState('');
-  const [roomZone, setRoomZone] = useState('Dining counter near Lost & Found desk #2');
-  const [locationCoordinates, setLocationCoordinates] = useState<ItemLocationCoordinates | null>({
-    lat: 23.1784,
-    lng: 77.4923,
-    formatted: '23.1784° N, 77.4923° E',
-  });
-  const [pinCoordinates, setPinCoordinates] = useState<string | null>(
-    'Pin: Main Campus Food Court & Canteen (CANTEEN-MAIN) · 23.1784° N, 77.4923° E'
-  );
-  const [colorway, setColorway] = useState('Matte Black');
+  const [roomZone, setRoomZone] = useState('');
+  const [locationCoordinates, setLocationCoordinates] = useState<ItemLocationCoordinates | null>(null);
+  const [pinCoordinates, setPinCoordinates] = useState<string | null>(null);
+  const [colorway, setColorway] = useState('');
   const [description, setDescription] = useState('');
-  const [photoUrl, setPhotoUrl] = useState<string | null>(
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuA5sM9hoasQMK3tLsLR2E8FlCPG1tVSleLKsBh5dpWEVGxChfvJ67nZ0nJ4QwykZ00w7ua-BUALdP5j22wm7Kn_BRbp-RckooLmDvSaV_y3QcbJ57StJhYJ8VG5coRGkRWaqYdMtJnPm269F8nxKrA2kuS8qf2KZ8AlKy_HP8j4QHFUv5JywapFVuovAeC5dXcwU10Jxzap2_bo1Rd8IP8zdQXtx91ohV7P5ASGH2z-iCLGd0iBMwk-cA'
-  );
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
-  const [officerNotes, setOfficerNotes] = useState('Cushioned headband, powered off, stored in custody bin.');
-  const [binNumber, setBinNumber] = useState(`BIN #E-${Math.floor(10 + Math.random() * 89)}`);
+  const [officerNotes, setOfficerNotes] = useState('');
+  const [binNumber, setBinNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
@@ -152,10 +150,10 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
         id: `found-${Date.now()}`,
         reportCode: `#F-${Math.floor(1000 + Math.random() * 9000)}`,
         type: 'found',
-        title: title || 'Turned-In Property',
+        title: title.trim(),
         category,
         colorway,
-        description: description || 'Property turned in at custody desk. Safe lockup active.',
+        description: description.trim(),
         campusId,
         campusName: currentCampusConfig.name,
         buildingArea: resolvedLocation,
@@ -167,18 +165,18 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
         shuttleLine: facilitySector === 'transit' ? shuttleLine : undefined,
         locationName: resolvedLocation,
         roomZone: pinCoordinates ? `${roomZone} (${pinCoordinates})` : roomZone,
-        dateLostOrFound: 'Oct 14, 2024',
-        timeString: 'Just now',
+        dateLostOrFound: new Date().toLocaleDateString(),
+        timeString: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         status: 'in_custody',
         statusLabel: 'Found · In Safe Custody',
         binNumber,
-        imageUrl:
-          photoUrl ||
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuA5sM9hoasQMK3tLsLR2E8FlCPG1tVSleLKsBh5dpWEVGxChfvJ67nZ0nJ4QwykZ00w7ua-BUALdP5j22wm7Kn_BRbp-RckooLmDvSaV_y3QcbJ57StJhYJ8VG5coRGkRWaqYdMtJnPm269F8nxKrA2kuS8qf2KZ8AlKy_HP8j4QHFUv5JywapFVuovAeC5dXcwU10Jxzap2_bo1Rd8IP8zdQXtx91ohV7P5ASGH2z-iCLGd0iBMwk-cA',
+        imageUrl: photoUrl || '',
         imageAlt: title,
         imageTagLabel: 'Staff Intake Photograph',
         officerNotes,
-        officerName: 'Staff Officer R. Ramirez (#ST-44)',
+        officerName: currentUser.name,
+        ownerId: currentUser.id,
+        ownerName: currentUser.name,
         createdAt: new Date().toISOString(),
       };
 
@@ -476,23 +474,25 @@ export const ReportFoundModal: React.FC<ReportFoundModalProps> = ({
           {/* Interactive Map Pin Accordion */}
           {showMapPicker && (
             <div className="p-3 bg-[#e6f8eb]/60 rounded-xl border border-[#c1ecd4] animate-in fade-in">
-              <CampusMapPicker
-                campusId={campusId}
-                selectedLocationName={isOtherLocation ? otherLocationDescription : locationName}
-                onSelectLocation={(name, pinCoord, coordsObj, areaObj) => {
-                  if (areaObj) {
-                    setLocationName(name);
-                    setIsOtherLocation(false);
-                    setLocationCategory(areaObj.category);
-                  } else {
-                    if (!isOtherLocation) {
+              <Suspense fallback={<div className="h-72 rounded-xl bg-[#e6f8eb] animate-pulse" />}>
+                <CampusMapPicker
+                  campusId={campusId}
+                  selectedLocationName={isOtherLocation ? otherLocationDescription : locationName}
+                  selectedCoordinates={locationCoordinates}
+                  onUniversityDetected={onUniversityDetected}
+                  onSelectLocation={(name, pinCoord, coordsObj, areaObj) => {
+                    if (areaObj) {
+                      setLocationName(name);
+                      setIsOtherLocation(false);
+                      setLocationCategory(areaObj.category);
+                    } else if (!isOtherLocation) {
                       setLocationName(name);
                     }
-                  }
-                  if (pinCoord) setPinCoordinates(pinCoord);
-                  if (coordsObj) setLocationCoordinates(coordsObj);
-                }}
-              />
+                    if (pinCoord) setPinCoordinates(pinCoord);
+                    if (coordsObj) setLocationCoordinates(coordsObj);
+                  }}
+                />
+              </Suspense>
             </div>
           )}
 

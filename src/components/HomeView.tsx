@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Item, ViewTab, CampusId } from '../types';
-import { CAMPUS_SITES, HANDOVER_STATIONS } from '../data/mockData';
+import { HANDOVER_STATIONS } from '../data/mockData';
 
 interface HomeViewProps {
   items: Item[];
   selectedCampus: CampusId;
+  detectedUniversity?: string | null;
+  hasDetectedLocation?: boolean;
   onNavigateToTab: (tab: ViewTab) => void;
   onOpenReportFound: () => void;
   onOpenCampusDesk: () => void;
@@ -14,6 +16,8 @@ interface HomeViewProps {
 export const HomeView: React.FC<HomeViewProps> = ({
   items,
   selectedCampus,
+  detectedUniversity,
+  hasDetectedLocation = false,
   onNavigateToTab,
   onOpenReportFound,
   onOpenCampusDesk,
@@ -21,8 +25,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const [heroSearchQuery, setHeroSearchQuery] = useState('');
 
-  const currentCampusInfo =
-    CAMPUS_SITES.find((c) => c.id === selectedCampus) || CAMPUS_SITES[0];
+  const campusDisplayName = hasDetectedLocation
+    ? detectedUniversity ?? 'University not identified at this location'
+    : 'Allow location access to identify your university';
 
   // Recently reported items (first 6)
   const recentItems = items.slice(0, 6);
@@ -43,16 +48,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* Institutional Status Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[#c1ecd4] text-[12px] font-bold tracking-wide">
             <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse" />
-            <span>Official Caldwell University Property Custody Hub</span>
+            <span>FindSync Campus Network</span>
             <span className="text-white/40">•</span>
-            <span className="text-white">{currentCampusInfo.name}</span>
+            <span className="text-white">{campusDisplayName}</span>
           </div>
 
           {/* Main Hero Headline */}
           <div className="flex flex-col gap-3">
             <h1 className="text-[34px] sm:text-[46px] md:text-[54px] font-extrabold tracking-tight leading-[1.1] text-white">
               Lost Something on Campus? <br className="hidden sm:inline" />
-              <span className="text-[#c1ecd4] underline decoration-[#a23e18] decoration-wavy decoration-from-font">
+              <span className="text-[#c1ecd4]">
                 We'll Help You Find It.
               </span>
             </h1>
@@ -72,7 +77,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 type="text"
                 value={heroSearchQuery}
                 onChange={(e) => setHeroSearchQuery(e.target.value)}
-                placeholder="What did you lose or find? (e.g. Sony XM4, Blue Line backpack, Hydro Flask...)"
+                placeholder="Search by item name, category, or location"
                 className="w-full py-2.5 bg-transparent text-[#101f17] placeholder:text-[#717973] text-[14px] sm:text-[15px] focus:outline-none"
               />
             </div>
@@ -174,20 +179,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#c1ecd4]">
                   Match Engine
                 </span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#a23e18] text-white">
-                  86% Match Alert
-                </span>
+                {items.filter((item) => item.status === 'under_review').length > 0 && <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#a23e18] text-white">{items.filter((item) => item.status === 'under_review').length} active</span>}
               </div>
               <h2 className="text-[20px] font-bold text-white group-hover:text-[#c1ecd4] transition-colors">
                 Inspect AI Matches
               </h2>
             </div>
             <p className="text-[13px] text-white/80 leading-relaxed">
-              Review side-by-side comparison for Sony WH-1000XM4 headphones currently held in Student Union Bin #E-14.
+              Check for possible matches generated from current lost and found reports.
             </p>
           </div>
           <div className="flex items-center text-[13px] font-bold text-[#c1ecd4] group-hover:translate-x-1 transition-transform">
-            <span>Inspect Match Case #PM-8429</span>
+            <span>View Potential Matches</span>
             <span className="material-symbols-outlined text-base ml-1">chevron_right</span>
           </div>
         </div>
@@ -196,27 +199,27 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* 3. LIVE CAMPUS STATS BANNER */}
       <section className="bg-white rounded-2xl p-6 border border-[#d5e7da] shadow-xs grid grid-cols-2 md:grid-cols-4 gap-6 text-center divide-y md:divide-y-0 md:divide-x divide-[#e0f2e6]">
         <div className="flex flex-col items-center justify-center gap-1">
-          <span className="text-[32px] font-black text-[#012d1d]">98.4%</span>
+          <span className="text-[32px] font-black text-[#012d1d]">{items.filter((item) => item.status === 'reunited').length}</span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
-            Match Verification Accuracy
+            Reunited Items
           </span>
         </div>
         <div className="flex flex-col items-center justify-center gap-1 pt-4 md:pt-0">
-          <span className="text-[32px] font-black text-[#a23e18]">1,240+</span>
+          <span className="text-[32px] font-black text-[#a23e18]">{items.filter((item) => item.type === 'lost').length}</span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
-            Reunited Possessions
+            Lost Reports
           </span>
         </div>
         <div className="flex flex-col items-center justify-center gap-1 pt-4 md:pt-0">
-          <span className="text-[32px] font-black text-[#012d1d]">7 Stations</span>
+          <span className="text-[32px] font-black text-[#012d1d]">{items.filter((item) => item.type === 'found').length}</span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
-            Staffed Custody Desks
+            Found Items
           </span>
         </div>
         <div className="flex flex-col items-center justify-center gap-1 pt-4 md:pt-0">
-          <span className="text-[32px] font-black text-[#1b4332]">&lt; 24h</span>
+          <span className="text-[32px] font-black text-[#1b4332]">{items.length}</span>
           <span className="text-[12px] font-semibold text-[#414844] uppercase tracking-wider">
-            Average Resolution Time
+            Total Reports
           </span>
         </div>
       </section>
@@ -244,7 +247,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         {/* Responsive Grid of Recent Items */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {recentItems.length === 0 ? <div className="rounded-xl border border-dashed border-[#c1ecd4] bg-white p-8 text-center text-sm text-[#536057]">No reports yet. New lost and found reports will appear here.</div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {recentItems.map((item) => (
             <div
               key={item.id}
@@ -272,7 +275,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   )}
                   {item.status === 'under_review' && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ffdbcf] text-[#a23e18] border border-[#a23e18]/20">
-                      86% Match
+                      Match under review
                     </span>
                   )}
                 </div>
@@ -298,7 +301,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
             </div>
           ))}
-        </div>
+        </div>}
       </section>
 
       {/* 5. HOW FINDSYNC WORKS (3-Step Lifecycle) */}
@@ -364,11 +367,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onClick={onOpenCampusDesk}
             className="px-4 py-2 rounded-lg bg-[#e6f8eb] hover:bg-[#dbede0] text-[#012d1d] text-[13px] font-bold border border-[#c1ecd4] self-start sm:self-auto cursor-pointer"
           >
-            View All 7 Desk Locations
+            View Custody Desks
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {HANDOVER_STATIONS.length === 0 ? <p className="text-sm text-[#536057]">No custody desks have been configured yet.</p> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {HANDOVER_STATIONS.slice(0, 4).map((station) => (
             <div
               key={station.id}
@@ -396,7 +399,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </a>
             </div>
           ))}
-        </div>
+        </div>}
       </section>
     </div>
   );

@@ -15,4 +15,20 @@
     vertical-align: middle;
     line-height: 1;
   }
+
+  .leaflet-container {
+    font-family: inherit;
+  }
+
+  .findsync-map-pin {
+    background: transparent;
+    border: 0;
+  }
+
+  .findsync-map-pin .material-symbols-outlined {
+    color: #a23e18;
+    font-size: 40px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 2px rgb(0 0 0 / 35%));
+  }
 }

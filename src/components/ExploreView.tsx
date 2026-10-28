@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Item, ViewTab, CampusId, FacilitySector } from '../types';
-import { CAMPUS_SITES } from '../data/mockData';
+import { CAMPUS_SITES, HANDOVER_STATIONS } from '../data/mockData';
 
 interface ExploreViewProps {
   items: Item[];
@@ -471,7 +471,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                       : 'bg-white border border-[#d5e7da] text-[#414844] hover:bg-[#e6f8eb]'
                   }`}
                 >
-                  Caldwell Sports Arena
+                  campus sports area
                 </button>
                 <button
                   type="button"
@@ -597,12 +597,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 </div>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#c1ecd4] text-[#002114] text-[11px] font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#1b4332] animate-pulse" />
-                  5 Campus Desks
+                  {HANDOVER_STATIONS.length} Campus Desks
                 </span>
               </div>
               <p className="text-[13px] text-[#414844] leading-snug">
                 <strong>{currentCampusInfo.name}</strong><br />
-                Connected with student union, dorms, and transit dispatch.
+                Campus desk details are provided by local campus staff.
               </p>
               <div className="pt-2 flex items-center justify-between text-[12px] text-[#012d1d] font-semibold border-t border-[#e0f2e6]">
                 <button
@@ -610,7 +610,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                   onClick={onOpenCampusDesk}
                   className="underline hover:text-[#1b4332] cursor-pointer flex items-center gap-1"
                 >
-                  <span>View All 5 Handover Desks</span>
+                  <span>View Handover Desks</span>
                   <span>→</span>
                 </button>
               </div>

@@ -16,10 +16,12 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+  const [isRequestingCamera, setIsRequestingCamera] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isMountedRef = useRef(true);
 
   // Stop camera tracks cleanly
   const stopCameraStream = () => {
@@ -37,52 +39,70 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
   };
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       stopCameraStream();
     };
   }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!isCameraActive || capturedSnapshot || !video || !stream) return;
+
+    video.srcObject = stream;
+    void video.play().catch(() => {
+      setCameraError('Camera is ready, but the preview did not start. Try the camera again or upload a photo.');
+    });
+  }, [isCameraActive, capturedSnapshot]);
 
   // Request camera permission only after user explicitly clicks "Take Photo"
   const handleStartCamera = async () => {
     setCameraError(null);
     setFileError(null);
     setCapturedSnapshot(null);
+    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+      setCameraError('Camera access requires a secure connection (HTTPS). Open this app over HTTPS or use Upload Photo.');
+      return;
+    }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraError('Direct webcam capture is not supported in this browser. Please use the Upload Photo option.');
       return;
     }
 
+    setIsRequestingCamera(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
 
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       setIsCameraActive(true);
-
-      // Connect video stream
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch((err) => {
-            console.warn('Video play interrupted:', err);
-          });
-        }
-      }, 50);
-    } catch (err: any) {
-      console.warn('Camera permission or device error:', err);
+      setCameraError(null);
+    } catch (err: unknown) {
+      const cameraFailure = err instanceof Error ? err : new Error('Unknown camera error');
+      console.warn('Camera permission or device error:', cameraFailure);
       let errorMsg = 'Unable to access your device camera.';
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      if (cameraFailure.name === 'NotAllowedError' || cameraFailure.name === 'PermissionDeniedError') {
         errorMsg = 'Camera permission was denied. You can allow camera access in browser settings or choose "Upload Photo" below.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      } else if (cameraFailure.name === 'NotFoundError' || cameraFailure.name === 'DevicesNotFoundError') {
         errorMsg = 'No camera device was detected on your hardware. Please use "Upload Photo" instead.';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      } else if (cameraFailure.name === 'NotReadableError' || cameraFailure.name === 'TrackStartError') {
         errorMsg = 'Your camera is already in use by another application. Please close other camera apps or upload a photo.';
       }
-      setCameraError(errorMsg);
-      stopCameraStream();
+      if (isMountedRef.current) {
+        setCameraError(errorMsg);
+        stopCameraStream();
+      }
+    } finally {
+      if (isMountedRef.current) setIsRequestingCamera(false);
     }
   };
 
@@ -91,6 +111,10 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
     if (videoRef.current) {
       try {
         const video = videoRef.current;
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) {
+          setCameraError('Camera preview is still starting. Wait a moment and try again.');
+          return;
+        }
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
@@ -162,35 +186,6 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
         setFileError('Failed to read the selected image file. Please try another image.');
       };
       reader.readAsDataURL(file);
-    }
-  };
-
-  // Fallback simulated photo generator for sandboxes/devices without webcams
-  const handleGenerateSamplePhoto = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#012d1d';
-      ctx.fillRect(0, 0, 640, 480);
-      const grad = ctx.createLinearGradient(0, 200, 0, 480);
-      grad.addColorStop(0, '#1b4332');
-      grad.addColorStop(1, '#0e241b');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 180, 640, 300);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('FINDSYNC INTAKE PHOTOGRAPH', 320, 230);
-      ctx.fillStyle = '#c1ecd4';
-      ctx.font = '14px monospace';
-      ctx.fillText(`VERIFIED INTAKE · ${new Date().toLocaleDateString()}`, 320, 265);
-
-      const dataUrl = canvas.toDataURL('image/jpeg');
-      onPhotoCaptured(dataUrl, `intake_sample_${Date.now()}.jpg`);
-      setCameraError(null);
     }
   };
 
@@ -309,10 +304,11 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
               <button
                 type="button"
                 onClick={handleStartCamera}
-                className="px-3 py-1.5 rounded-xl bg-white border border-[#d5e7da] text-[#012d1d] text-xs font-bold hover:bg-[#e6f8eb] transition-all flex items-center gap-1 cursor-pointer"
+                disabled={isRequestingCamera}
+                className="px-3 py-1.5 rounded-xl bg-white border border-[#d5e7da] text-[#012d1d] text-xs font-bold hover:bg-[#e6f8eb] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-60"
               >
                 <span className="material-symbols-outlined text-sm">photo_camera</span>
-                <span>Retake Photo</span>
+                <span>{isRequestingCamera ? 'Requesting permission…' : 'Retake Photo'}</span>
               </button>
 
               <button
@@ -360,10 +356,11 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
             <button
               type="button"
               onClick={handleStartCamera}
-              className="px-4 py-2.5 rounded-xl bg-[#012d1d] text-white text-xs sm:text-[13px] font-bold hover:bg-[#1b4332] transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+              disabled={isRequestingCamera}
+              className="px-4 py-2.5 rounded-xl bg-[#012d1d] text-white text-xs sm:text-[13px] font-bold hover:bg-[#1b4332] transition-all flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-base">photo_camera</span>
-              <span>Take Photo</span>
+              <span className={`material-symbols-outlined text-base ${isRequestingCamera ? 'animate-pulse' : ''}`}>{isRequestingCamera ? 'hourglass_top' : 'photo_camera'}</span>
+              <span>{isRequestingCamera ? 'Requesting camera permission…' : 'Take Photo'}</span>
             </button>
 
             <button
@@ -379,6 +376,9 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
 
           <span className="text-[11px] text-[#717973]">
             Supports JPG, PNG, WebP up to 10MB · Privacy-protected
+          </span>
+          <span className="text-[11px] text-[#717973]">
+            Your browser asks for camera access only after you select Take Photo. The camera turns off when you cancel or use the photo.
           </span>
         </div>
       )}
@@ -397,13 +397,6 @@ export const CameraCaptureWidget: React.FC<CameraCaptureWidgetProps> = ({
               className="px-3 py-1 rounded-lg bg-[#012d1d] text-white font-bold hover:bg-[#1b4332] cursor-pointer"
             >
               Choose Existing File
-            </button>
-            <button
-              type="button"
-              onClick={handleGenerateSamplePhoto}
-              className="text-[#a23e18] hover:underline font-bold cursor-pointer"
-            >
-              Use Intake Placeholder
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile, ViewTab, CampusId } from '../types';
+import { UserProfile, ViewTab, CampusId, AppNotification } from '../types';
 import { CAMPUS_SITES } from '../data/mockData';
 import { getCampusConfigurations } from '../data/campusConfig';
 
@@ -12,9 +12,13 @@ interface HeaderProps {
   onOpenAuthModal?: () => void;
   onOpenHelp?: () => void;
   selectedCampus: CampusId;
+  detectedUniversity?: string | null;
+  hasDetectedLocation?: boolean;
+  onDetectUniversity: () => Promise<void>;
   onSelectCampus: (campusId: CampusId) => void;
   matchesCount?: number;
   unreadNotifications?: number;
+  notifications?: AppNotification[];
   userRole: 'student' | 'staff';
   onToggleRole?: () => void;
   currentUser?: UserProfile | null;
@@ -30,9 +34,13 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuthModal,
   onOpenHelp,
   selectedCampus,
+  detectedUniversity,
+  hasDetectedLocation = false,
+  onDetectUniversity,
   onSelectCampus,
   matchesCount = 1,
   unreadNotifications = 2,
+  notifications = [],
   userRole,
   onToggleRole,
   currentUser,
@@ -42,9 +50,14 @@ export const Header: React.FC<HeaderProps> = ({
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCampusMenu, setShowCampusMenu] = useState(false);
+  const [isDetectingUniversity, setIsDetectingUniversity] = useState(false);
 
   const campusConfigs = getCampusConfigurations();
   const currentCampus = campusConfigs.find((c) => c.id === selectedCampus) || campusConfigs[0] || CAMPUS_SITES[0];
+  const campusDisplayName = hasDetectedLocation
+    ? detectedUniversity ?? 'University not identified at this location'
+    : 'University location not detected';
+  const profileName = currentUser?.name?.trim() || currentUser?.email?.split('@')[0] || 'Account';
 
   const baseNavItems: { id: ViewTab; label: string; badge?: string; isStaff?: boolean; action?: () => void }[] = [
     { id: 'home', label: 'Home' },
@@ -101,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <span className="material-symbols-outlined text-base text-[#a23e18]">location_on</span>
               <span className="max-w-[130px] sm:max-w-[180px] truncate text-left">
-                {currentCampus.name}
+                {campusDisplayName}
               </span>
               <span className="material-symbols-outlined text-sm">unfold_more</span>
             </button>
@@ -120,6 +133,27 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                     <span className="text-[12px] text-[#414844]">Select university location or transit network</span>
                   </div>
+
+                  <button
+                    type="button"
+                    disabled={isDetectingUniversity}
+                    onClick={async () => {
+                      setIsDetectingUniversity(true);
+                      try {
+                        await onDetectUniversity();
+                      } finally {
+                        setIsDetectingUniversity(false);
+                        setShowCampusMenu(false);
+                      }
+                    }}
+                    className="m-1 flex w-[calc(100%-0.5rem)] items-center gap-2 rounded-lg border border-[#c1ecd4] bg-[#e6f8eb] p-2.5 text-left text-[#012d1d] hover:bg-[#dbede0] disabled:opacity-60"
+                  >
+                    <span className={`material-symbols-outlined text-lg text-[#a23e18] ${isDetectingUniversity ? 'animate-pulse' : ''}`}>{isDetectingUniversity ? 'location_searching' : 'my_location'}</span>
+                    <span className="flex flex-col">
+                      <span className="text-xs font-bold">{isDetectingUniversity ? 'Finding nearby university…' : 'Use current location'}</span>
+                      <span className="text-[10px] text-[#536057]">Allow GPS to identify the university near you</span>
+                    </span>
+                  </button>
 
                   <div className="py-1 flex flex-col gap-1">
                     {campusConfigs.map((site) => {
@@ -255,31 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
                     View All Hub
                   </button>
                 </div>
-                <div className="flex flex-col gap-2 mt-2 max-h-72 overflow-y-auto">
-                  <div
-                    onClick={() => {
-                      onSelectTab('potential-matches');
-                      setShowNotifications(false);
-                    }}
-                    className="p-2.5 rounded-lg bg-[#ecfef1] hover:bg-[#e0f2e6] transition-colors cursor-pointer flex items-start gap-2.5 border border-[#c1ecd4]"
-                  >
-                    <span className="material-symbols-outlined text-[#a23e18] text-lg mt-0.5">auto_awesome</span>
-                    <div className="flex flex-col">
-                      <span className="text-[12px] font-bold text-[#101f17]">86% Match Detected!</span>
-                      <span className="text-[11px] text-[#414844]">Sony WH-1000XM4 pair logged at Student Union Desk Bin #E-14.</span>
-                      <span className="text-[10px] text-[#a23e18] font-semibold mt-1">Click to view comparison →</span>
-                    </div>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-[#faf8f5] hover:bg-[#f4f1ea] transition-colors cursor-pointer flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-[#012d1d] text-lg mt-0.5">airport_shuttle</span>
-                    <div className="flex flex-col">
-                      <span className="text-[12px] font-bold text-[#101f17]">Transit Route Property Logged</span>
-                      <span className="text-[11px] text-[#414844]">Blue Line Shuttle #12 turned in an Olive Green Kånken backpack.</span>
-                      <span className="text-[10px] text-[#414844] mt-0.5">35 mins ago</span>
-                    </div>
-                  </div>
-                </div>
-                <button
+                <div className="flex flex-col gap-2 mt-2 max-h-72 overflow-y-auto">{notifications.length === 0 ? <p className="p-3 text-center text-xs text-[#536057]">No notifications yet.</p> : notifications.slice(0, 5).map((notification) => <button key={notification.id} type="button" onClick={() => { onSelectTab(notification.linkTab ?? 'my-items'); setShowNotifications(false); }} className="p-2.5 rounded-lg bg-[#ecfef1] text-left border border-[#c1ecd4]"><span className="text-xs font-bold text-[#101f17]">{notification.title}</span><span className="block text-[11px] text-[#414844]">{notification.message}</span><span className="block text-[10px] text-[#717973]">{notification.timeAgo}</span></button>)}</div><button
                   type="button"
                   onClick={() => {
                     if (onOpenNotificationsModal) onOpenNotificationsModal();
@@ -295,37 +305,45 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Profile & Role Switcher */}
           <div className="relative">
-            <div
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={showProfileMenu}
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center gap-2 pl-1 py-1 pr-2 rounded-full hover:bg-[#dbede0] transition-colors cursor-pointer border border-transparent hover:border-[#c1ecd4]"
+              className="flex items-center gap-2 pl-1 py-1 pr-2 rounded-full bg-[#e0f2e6] hover:bg-[#d5eadb] transition-colors cursor-pointer border border-[#c1ecd4] text-left"
             >
-              <img
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-[#c1ecd4]"
-                src={
-                  userRole === 'student'
+              <span className="relative w-9 h-9 rounded-full bg-[#1b4332] text-white flex items-center justify-center font-bold ring-2 ring-white overflow-hidden shrink-0">
+                {profileName.charAt(0).toUpperCase()}
+                <img
+                  alt=""
+                  className="absolute inset-0 w-full h-full rounded-full object-cover"
+                  src={currentUser?.avatarUrl || (userRole === 'student'
                     ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuDbf3G8HSF-ivKo4tb4pr1yc9N2z3g5MjMlZ1zlxGTrUICAsSqyPLbMYvMCHgXvSZtn_69uXi9Qk73gzkaflf7kDMJzpUh1wiqbRKMkrLN2jG5j6LTY7Z2gpJjjoJaWvTSRPiRHoNd3iMEMzDrELyvtp3e3BEKzQm_O8MBOpA5H_eJXeeLyBnr5lLY0kImxZQVN80sYF1V-gTJRzDXQyvqmZ5Bh_ByMZ8nG5SMX1RGsWIfBYgQIL74N-Q'
-                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80'
-                }
-              />
+                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80')}
+                  onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                />
+              </span>
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-[13px] text-[#101f17] leading-tight font-bold">
-                  {currentUser?.name || (userRole === 'student' ? 'Maya Lin' : 'Officer Ramirez')}
+                  {profileName}
                 </span>
                 <span className="text-[11px] text-[#414844] leading-none">
                   {currentUser?.role === 'staff' ? 'Campus Safety Officer' : 'Student / Finder'}
                 </span>
               </div>
               <span className="material-symbols-outlined text-[#414844] text-base">expand_more</span>
-            </div>
+            </button>
 
             {/* Profile Menu */}
             {showProfileMenu && (
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-[#d5e7da] p-2 z-50 animate-in fade-in">
                 <div className="p-2 border-b border-[#e0f2e6]">
                   <p className="text-[11px] text-[#414844] font-medium">Signed in as</p>
-                  <p className="text-[13px] font-bold text-[#012d1d] truncate">
-                    {currentUser?.email || (userRole === 'student' ? 'maya.lin@gmail.com' : 'officer.ramirez@bhopal.edu')}
+                  <p className="text-[14px] font-bold text-[#012d1d] truncate">
+                    {profileName}
+                  </p>
+                  <p className="text-[12px] text-[#414844] truncate">
+                    {currentUser?.email || 'Signed-in account'}
                   </p>
                   <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#e6f8eb] text-[#012d1d]">
                     {currentUser?.role === 'staff' ? 'Campus Safety Admin' : 'Student / Finder Member'}

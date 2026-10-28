@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Item, ClaimTracking, ViewTab } from '../types';
+import { HANDOVER_STATIONS } from '../data/mockData';
 
 interface FinderClaim {
   id: string;
@@ -18,7 +19,8 @@ interface FinderClaim {
 
 interface MyItemsViewProps {
   items: Item[];
-  claimTracking: ClaimTracking;
+  claimTracking: ClaimTracking | null;
+  currentUserId: string;
   onNavigateToTab: (tab: ViewTab) => void;
   onNavigateToMatch: (caseId?: string) => void;
   onOpenReportFound: () => void;
@@ -28,6 +30,7 @@ interface MyItemsViewProps {
 export const MyItemsView: React.FC<MyItemsViewProps> = ({
   items,
   claimTracking,
+  currentUserId,
   onNavigateToTab,
   onNavigateToMatch,
   onOpenReportFound,
@@ -37,35 +40,28 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
     'all' | 'lost' | 'found' | 'matches' | 'claims' | 'reunited'
   >('all');
   const [showAlertBanner, setShowAlertBanner] = useState(true);
-  const [activeClaim, setActiveClaim] = useState<ClaimTracking>(claimTracking);
+  const [activeClaim, setActiveClaim] = useState<ClaimTracking | null>(claimTracking);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Finder claims management state
-  const [finderClaims, setFinderClaims] = useState<FinderClaim[]>([
-    {
-      id: '#FCLM-8819',
-      foundItemId: 'found-1082',
-      itemTitle: 'Sony WH-1000XM4 Headphones',
-      itemReportCode: '#F-1082',
-      claimantName: 'Maya Lin',
-      claimantContact: 'maya.lin@gmail.com',
-      submittedAt: 'Today, 2:45 PM',
-      secretClueSubmitted: "Device Bluetooth name is 'Maya's XM4'. Inside zipper mesh pocket is a silver USB-C to 3.5mm coiled adapter and a lavender guitar pick.",
-      status: 'pending_finder_review',
-    },
-  ]);
+  const [finderClaims, setFinderClaims] = useState<FinderClaim[]>([]);
 
   // Handover modal state
   const [handoverModalClaim, setHandoverModalClaim] = useState<FinderClaim | null>(null);
-  const [handoverStation, setHandoverStation] = useState('SAGE University Bhopal - Admin & Campus Security Desk');
-  const [handoverTimeSlot, setHandoverTimeSlot] = useState('Tomorrow, 11:30 AM – 1:00 PM');
-  const [handoverSafetyNotes, setHandoverSafetyNotes] = useState('Bring your student ID card or photo verification.');
+  const [handoverStation, setHandoverStation] = useState('');
+  const [handoverTimeSlot, setHandoverTimeSlot] = useState('');
+  const [handoverSafetyNotes, setHandoverSafetyNotes] = useState('');
 
   // Return receipt confirmation modal state
   const [receiptClaim, setReceiptClaim] = useState<FinderClaim | null>(null);
 
-  // Filter items belonging to user Maya Lin or found by user
-  const userItems = items.filter((i) => i.ownerName === 'Maya Lin' || i.type === 'found');
+  // Show only reports created by the signed-in user.
+  const userItems = items.filter((item) => item.ownerId === currentUserId);
+  const potentialMatch = userItems.find((item) => item.status === 'under_review');
+
+  useEffect(() => {
+    setActiveClaim(claimTracking);
+  }, [claimTracking]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -73,6 +69,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
   };
 
   const handleWithdrawClaim = () => {
+    if (!activeClaim) return;
     if (confirm('Are you sure you want to withdraw Claim ' + activeClaim.claimId + '?')) {
       showToast('Claim ' + activeClaim.claimId + ' has been withdrawn.');
     }
@@ -155,7 +152,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
       if (selectedSubTab === 'lost') return item.type === 'lost';
       if (selectedSubTab === 'found') return item.type === 'found';
       if (selectedSubTab === 'matches') return item.status === 'under_review' || Boolean(item.matchScore);
-      if (selectedSubTab === 'claims') return item.submittedProof || activeClaim.reportNumber === item.reportCode;
+      if (selectedSubTab === 'claims') return Boolean(item.submittedProof) || activeClaim?.reportNumber === item.reportCode;
       if (selectedSubTab === 'reunited') return item.status === 'reunited';
       return true;
     });
@@ -301,7 +298,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
       </div>
 
       {/* AI Match High Priority Alert Banner */}
-      {showAlertBanner && (
+      {showAlertBanner && potentialMatch && (
         <div className="relative overflow-hidden rounded-xl bg-white p-5 sm:p-6 shadow-sm border border-[#d5e7da] border-l-4 border-l-[#a23e18]">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex items-start gap-4">
@@ -313,13 +310,13 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
                   <span className="text-[11px] uppercase px-2 py-0.5 rounded-full bg-[#a23e18] text-white font-bold">
                     Potential Match Candidate
                   </span>
-                  <span className="text-[11px] text-[#414844]">Updated recently</span>
+                  <span className="text-[11px] text-[#414844]">{potentialMatch.dateLostOrFound}</span>
                 </div>
                 <h2 className="text-[18px] text-[#101f17] font-bold">
-                  High-confidence match candidate identified for Sony Headphones
+                  A possible match is under review for {potentialMatch.title}
                 </h2>
                 <p className="text-[13px] text-[#414844] max-w-2xl leading-relaxed">
-                  Campus Custodial Desk logged a matching black pair. Color, model, and physical markings correlate with your loss report.
+                  A report has been flagged for review. Check the match details for current information.
                 </p>
               </div>
             </div>
@@ -334,7 +331,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => onNavigateToMatch('Case #PM-8429')}
+                onClick={() => onNavigateToMatch(potentialMatch.reportCode)}
                 className="px-5 py-2.5 rounded-lg bg-[#a23e18] text-white hover:bg-[#822801] text-[13px] font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
               >
                 <span>Review Match Details</span>
@@ -510,6 +507,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
         {/* Left Column (8 cols) */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           {/* Active Claim Status Tracker Card */}
+          {activeClaim ? (
           <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-[#d5e7da] flex flex-col gap-5">
             {/* Card Title & Metadata */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-[#e0f2e6] gap-2">
@@ -619,6 +617,11 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
               </button>
             </div>
           </div>
+          ) : (
+            <div className="bg-white rounded-xl p-6 border border-dashed border-[#d5e7da] text-sm text-[#717973]">
+              No active claim yet. Claims you submit for a matched item will appear here.
+            </div>
+          )}
 
           {/* List of User's Items */}
           <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm border border-[#d5e7da] flex flex-col gap-4">
@@ -751,47 +754,19 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
                 <h3 className="text-[17px] text-[#012d1d] font-bold">Authorized Handover Desks</h3>
               </div>
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#c1ecd4] text-[#002114] font-bold">
-                Verified
+                {HANDOVER_STATIONS.length} configured
               </span>
             </div>
 
-            <p className="text-[13px] text-[#414844]">
-              Official safe handover desks verified for student-finder returns.
-            </p>
-
-            <div className="flex flex-col gap-3">
-              <div className="p-3 rounded-lg bg-[#e6f8eb] flex flex-col gap-1 border border-[#c1ecd4]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#101f17] font-bold">1. Central University Library</span>
-                  <span className="text-[11px] text-[#a23e18] font-bold">Desk 1</span>
-                </div>
-                <div className="flex items-center gap-1 text-[#414844] text-[12px]">
-                  <span className="material-symbols-outlined text-sm">schedule</span>
-                  <span>Daily: 8:00 AM – 8:00 PM</span>
-                </div>
-                <span className="text-[11px] text-[#717973]">Ground Floor Circulation Counter</span>
-              </div>
-
-              <div className="p-3 rounded-lg bg-[#e6f8eb] flex flex-col gap-1 border border-[#c1ecd4]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#101f17] font-bold">2. Main Admin &amp; Security Desk</span>
-                  <span className="text-[11px] text-[#012d1d] font-bold">Main Gate</span>
-                </div>
-                <div className="flex items-center gap-1 text-[#414844] text-[12px]">
-                  <span className="material-symbols-outlined text-sm">schedule</span>
-                  <span>24/7 Campus Security Post</span>
-                </div>
-                <span className="text-[11px] text-[#717973]">SAGE University Bhopal Main Entrance</span>
-              </div>
-            </div>
-
+            <p className="text-[13px] text-[#414844]">Handover desk locations are maintained by campus staff.</p>
+            {HANDOVER_STATIONS.length === 0 ? <p className="text-xs text-[#536057]">No handover desks have been configured for this campus.</p> : <div className="flex flex-col gap-3">{HANDOVER_STATIONS.map((station) => <div key={station.id} className="p-3 rounded-lg bg-[#e6f8eb] border border-[#c1ecd4]"><strong className="text-[13px] text-[#101f17]">{station.name}</strong><span className="block text-xs text-[#414844]">{station.location} · {station.hours}</span></div>)}</div>}
             {/* Handover Safety Notice */}
             <div className="p-3 rounded-lg bg-[#e0f2e6] flex items-start gap-2.5 border border-[#c1ecd4]">
               <span className="material-symbols-outlined text-[#012d1d] text-base shrink-0 mt-0.5">verified_user</span>
               <div className="flex flex-col">
                 <span className="text-[12px] text-[#012d1d] font-bold">Campus Safety Policy</span>
                 <p className="text-[11px] text-[#414844] leading-relaxed">
-                  Campus regulations recommend handovers take place at authorized security desks or library counters with student ID validation.
+                  Arrange handovers in a public place and verify the other person before exchanging an item.
                 </p>
               </div>
             </div>
@@ -860,19 +835,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
                   onChange={(e) => setHandoverStation(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-[#d5e7da] bg-white text-[#101f17] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#012d1d]"
                 >
-                  <option value="SAGE University Bhopal - Admin & Campus Security Desk">
-                    SAGE University Bhopal - Admin &amp; Campus Security Desk
-                  </option>
-                  <option value="Central University Library - Circulation Counter">
-                    Central University Library - Circulation Counter (Level 1)
-                  </option>
-                  <option value="Student Canteen / Cafeteria Information Desk">
-                    Student Canteen / Cafeteria Information Desk
-                  </option>
-                  <option value="Engineering & Technology Block Entrance Foyer">
-                    Engineering &amp; Technology Block Entrance Foyer
-                  </option>
-                </select>
+                  <option value="">Choose a configured handover desk</option>{HANDOVER_STATIONS.map((station) => <option key={station.id} value={station.name}>{station.name} · {station.location}</option>)}</select>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -938,7 +901,7 @@ export const MyItemsView: React.FC<MyItemsViewProps> = ({
             <div className="p-3 bg-[#fbfdf9] rounded-xl border border-[#d5e7da] text-left text-xs space-y-1 font-mono">
               <div><span className="text-[#717973]">Receipt Code:</span> #REC-{Math.floor(10000 + Math.random() * 90000)}</div>
               <div><span className="text-[#717973]">Recipient:</span> {receiptClaim.claimantName}</div>
-              <div><span className="text-[#717973]">Handover Station:</span> {receiptClaim.scheduledLocation || 'SAGE University Security Desk'}</div>
+              <div><span className="text-[#717973]">Handover Station:</span> {receiptClaim.scheduledLocation || 'Campus support desk'}</div>
               <div><span className="text-[#717973]">Timestamp:</span> {new Date().toLocaleString()}</div>
             </div>
 

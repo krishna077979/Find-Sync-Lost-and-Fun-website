@@ -41,7 +41,7 @@ export const CampusDeskModal: React.FC<CampusDeskModalProps> = ({
         </div>
 
         <p className="text-[14px] text-[#414844] leading-relaxed">
-          Caldwell University maintains 7 staffed safe custody stations across all academic buildings, residence halls, campus transit depots, athletic arenas, and medical center. To claim high-value items, bring your physical student or staff ID badge.
+          Handover desks are listed for the selected campus. Check the location details and opening hours before visiting. Bring your campus ID when collecting an item.
         </p>
 
         {/* Handover Stations List */}
@@ -78,24 +78,7 @@ export const CampusDeskModal: React.FC<CampusDeskModalProps> = ({
           ))}
         </div>
 
-        {/* Emergency Dispatch Banner */}
-        <div className="p-4 rounded-xl bg-[#012d1d] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#c1ecd4]">phone_in_talk</span>
-              <span className="text-[14px] font-bold">24/7 Campus Police Dispatch</span>
-            </div>
-            <p className="text-[12px] text-white/80 mt-0.5">
-              Urgent property loss, stolen vehicle, or urgent locker access.
-            </p>
-          </div>
-          <a
-            href="tel:5550192833"
-            className="px-4 py-2 rounded-lg bg-white text-[#012d1d] text-[12px] font-bold hover:bg-[#e0f2e6] whitespace-nowrap"
-          >
-            (555) 019-2833
-          </a>
-        </div>
+        {HANDOVER_STATIONS.length === 0 && <div className="p-4 rounded-xl bg-[#e6f8eb] border border-[#c1ecd4] text-sm text-[#536057]">No handover desks have been added for this campus yet.</div>}
 
         <div className="flex items-center justify-between pt-2 border-t border-[#e0f2e6]">
           <button

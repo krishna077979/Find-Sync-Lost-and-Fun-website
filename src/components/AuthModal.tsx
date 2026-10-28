@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { UserProfile } from '../types';
+import React, { useEffect, useState } from 'react';
+import { CampusId, UserProfile } from '../types';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { getCampusConfigurations } from '../data/campusConfig';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserProfile;
   onSwitchUser: (user: UserProfile) => void;
+  onProfileUpdated: (user: UserProfile) => void;
   onLogout: () => void;
 }
 
@@ -14,6 +17,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   currentUser,
   onSwitchUser,
+  onProfileUpdated,
   onLogout,
 }) => {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot_password' | 'profile'>('profile');
@@ -27,53 +31,173 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
   const [maskPhone, setMaskPhone] = useState(true);
   const [matchAlerts, setMatchAlerts] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileName, setProfileName] = useState(currentUser.name);
+  const [profileEmail, setProfileEmail] = useState(currentUser.email);
+  const [profilePhone, setProfilePhone] = useState(currentUser.phone ?? '');
+  const [profileDepartment, setProfileDepartment] = useState(currentUser.department ?? '');
+  const [profileCampus, setProfileCampus] = useState<CampusId>(currentUser.campusId);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState(currentUser.avatarUrl ?? '');
+  const [profileAvatarFile, setProfileAvatarFile] = useState<File | null>(null);
+  const [profileAvatarPreview, setProfileAvatarPreview] = useState(currentUser.avatarUrl ?? '');
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setProfileName(currentUser.name);
+    setProfileEmail(currentUser.email);
+    setProfilePhone(currentUser.phone ?? '');
+    setProfileDepartment(currentUser.department ?? '');
+    setProfileCampus(currentUser.campusId);
+    setProfileAvatarUrl(currentUser.avatarUrl ?? '');
+    setProfileAvatarPreview(currentUser.avatarUrl ?? '');
+    setProfileAvatarFile(null);
+  }, [currentUser]);
+
+  const saveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setProfileError(null);
+    const name = profileName.trim();
+    const emailAddress = profileEmail.trim();
+    if (!name || !emailAddress || !emailAddress.includes('@')) {
+      setProfileError('Enter your name and a valid email address.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      let avatarUrl = profileAvatarUrl.trim() || undefined;
+      if (profileAvatarFile && isSupabaseConfigured) {
+        const extension = profileAvatarFile.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+        const objectPath = `${currentUser.id}/avatar.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(objectPath, profileAvatarFile, {
+            cacheControl: '3600',
+            contentType: profileAvatarFile.type,
+            upsert: true,
+          });
+        if (uploadError) throw new Error(`Could not upload profile picture: ${uploadError.message}`);
+        avatarUrl = supabase.storage.from('avatars').getPublicUrl(objectPath).data.publicUrl;
+      } else if (profileAvatarFile) {
+        const bitmap = await createImageBitmap(profileAvatarFile);
+        const canvas = document.createElement('canvas');
+        const size = 256;
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Could not prepare the profile picture.');
+        const scale = Math.min(size / bitmap.width, size / bitmap.height);
+        const width = bitmap.width * scale;
+        const height = bitmap.height * scale;
+        context.drawImage(bitmap, (size - width) / 2, (size - height) / 2, width, height);
+        bitmap.close();
+        avatarUrl = canvas.toDataURL('image/jpeg', 0.78);
+      }
+
+      const updatedProfile: UserProfile = {
+        ...currentUser,
+        name,
+        email: isSupabaseConfigured ? currentUser.email : emailAddress,
+        phone: profilePhone.trim() || undefined,
+        department: profileDepartment.trim() || undefined,
+        campusId: profileCampus,
+        avatarUrl,
+      };
+
+      if (isSupabaseConfigured) {
+        const emailChanged = emailAddress.toLowerCase() !== currentUser.email.toLowerCase();
+        const { error: authUpdateError } = await supabase.auth.updateUser({
+          data: {
+            full_name: name,
+            phone: profilePhone.trim() || null,
+            department: profileDepartment.trim() || null,
+            campus_id: profileCampus,
+            avatar_url: avatarUrl ?? null,
+          },
+        });
+        if (authUpdateError) throw new Error(authUpdateError.message);
+
+        // Auth metadata keeps personal settings available even when an older
+        // Supabase database is missing the optional profile columns/table.
+        let directorySyncIssue: string | null = null;
+        const { data: savedProfile, error } = await supabase
+          .from('profiles')
+          .update({
+            full_name: name,
+            department: profileDepartment.trim() || null,
+            campus_id: profileCampus,
+            avatar_url: avatarUrl ?? null,
+          })
+          .eq('id', currentUser.id)
+          .select('id')
+          .maybeSingle();
+
+        if (error) {
+          directorySyncIssue = error.message;
+        } else if (!savedProfile && currentUser.role === 'student') {
+          const { error: insertError } = await supabase.from('profiles').insert({
+            id: currentUser.id,
+            email: currentUser.email,
+            full_name: name,
+            role: 'student',
+            department: profileDepartment.trim() || null,
+            campus_id: profileCampus,
+            avatar_url: avatarUrl ?? null,
+          });
+          if (insertError) directorySyncIssue = insertError.message;
+        } else if (!savedProfile) {
+          directorySyncIssue = 'Your account profile is missing. Ask a campus administrator to restore it.';
+        }
+
+        onProfileUpdated(updatedProfile);
+        if (emailChanged) {
+          const { error: emailUpdateError } = await supabase.auth.updateUser({ email: emailAddress });
+          if (emailUpdateError) {
+            setFeedbackMsg(`Profile saved, but the email could not be changed: ${emailUpdateError.message}`);
+          } else {
+            setFeedbackMsg(directorySyncIssue
+              ? `Profile saved. Confirm the email change; campus directory sync needs attention: ${directorySyncIssue}`
+              : 'Profile saved. Confirm the email change using the link sent to your inbox.');
+          }
+        } else {
+          setFeedbackMsg(directorySyncIssue
+            ? `Profile saved to your account, but campus directory sync failed: ${directorySyncIssue}`
+            : 'Profile settings saved.');
+        }
+      } else {
+        onProfileUpdated({ ...updatedProfile, email: emailAddress });
+        setFeedbackMsg('Profile settings saved on this device.');
+      }
+      setIsEditingProfile(false);
+    } catch (error) {
+      const message = error && typeof error === 'object' && 'message' in error
+        && typeof error.message === 'string'
+        ? error.message
+        : typeof error === 'string' ? error : 'Could not save profile settings.';
+      setProfileError(message);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   if (!isOpen) return null;
 
   const handleGoogleSignInModal = () => {
-    const googleUser: UserProfile = {
-      id: `usr-google-${Date.now()}`,
-      name: roleSelection === 'staff' ? 'Officer Google Staff' : 'Student Google User',
-      email: roleSelection === 'staff' ? 'staff.google@bhopal-safety.org' : 'student.google@gmail.com',
-      role: roleSelection,
-      studentId: roleSelection === 'staff' ? 'STAFF-G-099' : 'STU-G-7182',
-      campusId: 'sage-bhopal',
-      department: roleSelection === 'staff' ? 'Campus Safety Desk' : 'Google Authenticated Member',
-    };
-    onSwitchUser(googleUser);
-    setFeedbackMsg(`Signed in with Google Account (${googleUser.email})`);
-    setTimeout(() => {
-      setFeedbackMsg(null);
-      onClose();
-    }, 800);
+    onClose();
+    onLogout();
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setFeedbackMsg(`Logged in successfully as ${roleSelection === 'student' ? 'Student Maya Lin' : 'Staff Officer Ramirez'}.`);
-    setTimeout(() => {
-      setFeedbackMsg(null);
-      onClose();
-    }, 1000);
+    onClose();
+    onLogout();
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newUser: UserProfile = {
-      id: `usr-${Date.now()}`,
-      name: name || 'New Campus Member',
-      email: email || 'student@caldwell.edu',
-      role: roleSelection,
-      studentId: studentId || 'CW-2024-9999',
-      campusId: 'main-campus',
-      department: roleSelection === 'student' ? 'Undergraduate Studies' : 'Campus Safety Desk',
-    };
-    onSwitchUser(newUser);
-    setFeedbackMsg(`Account registered for ${newUser.name}!`);
-    setTimeout(() => {
-      setFeedbackMsg(null);
-      setMode('profile');
-    }, 1000);
+    onClose();
+    onLogout();
   };
 
   const handleForgotSubmit = (e: React.FormEvent) => {
@@ -92,7 +216,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </span>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#a23e18]">
-                Caldwell Single Sign-On
+                University account
               </span>
               <h2 className="text-[18px] font-bold text-[#012d1d]">
                 {mode === 'profile' && 'Campus Account & Identity'}
@@ -140,7 +264,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </span>
                 </div>
                 <span className="text-[12px] text-[#414844] truncate">{currentUser.email}</span>
-                <span className="text-[11px] text-[#717973]">ID: {currentUser.studentId || 'CW-2024-8192'}</span>
+                <span className="text-[11px] text-[#717973]">ID: {currentUser.studentId || 'Not provided'}</span>
               </div>
             </div>
 
@@ -152,16 +276,111 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#717973]">Phone Contact:</span>
-                <span className="font-semibold text-[#101f17]">{currentUser.phone || '(555) 019-2833'}</span>
+                <span className="font-semibold text-[#101f17]">{currentUser.phone || 'Not added'}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#717973]">SSO Status:</span>
-                <span className="font-bold text-[#1b4332] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1b4332]" />
-                  Active University Session
-                </span>
+                <span className="text-[#717973]">Campus:</span>
+                <span className="font-semibold text-[#101f17]">{getCampusConfigurations().find((campus) => campus.id === currentUser.campusId)?.name ?? 'Not selected'}</span>
               </div>
             </div>
+
+            {!isEditingProfile ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileError(null);
+                  setProfileAvatarFile(null);
+                  setProfileAvatarPreview(currentUser.avatarUrl ?? '');
+                  setIsEditingProfile(true);
+                }}
+                className="w-full px-4 py-2.5 rounded-xl bg-[#012d1d] text-white text-[13px] font-bold hover:bg-[#1b4332] transition-colors"
+              >
+                <span className="material-symbols-outlined text-base mr-1 align-middle">manage_accounts</span>
+                Profile settings
+              </button>
+            ) : (
+              <form onSubmit={saveProfile} className="flex flex-col gap-3 p-4 rounded-xl border border-[#c1ecd4] bg-[#f7fdf9]">
+                <h3 className="text-sm font-bold text-[#012d1d]">Edit profile information</h3>
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#414844]">
+                  Full name
+                  <input value={profileName} onChange={(event) => setProfileName(event.target.value)} required className="px-3 py-2 rounded-lg border border-[#d5e7da] bg-white text-sm text-[#101f17]" />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#414844]">
+                  Email address
+                  <input type="email" value={profileEmail} onChange={(event) => setProfileEmail(event.target.value)} required className="px-3 py-2 rounded-lg border border-[#d5e7da] bg-white text-sm text-[#101f17]" />
+                </label>
+                {isSupabaseConfigured && <p className="-mt-1 text-[11px] leading-relaxed text-[#717973]">Email changes take effect after you confirm the message sent to your inbox.</p>}
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#414844]">
+                  Phone number
+                  <input type="tel" autoComplete="tel" value={profilePhone} onChange={(event) => setProfilePhone(event.target.value)} placeholder="Add a contact number" className="px-3 py-2 rounded-lg border border-[#d5e7da] bg-white text-sm text-[#101f17]" />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#414844]">
+                  Department or course
+                  <input value={profileDepartment} onChange={(event) => setProfileDepartment(event.target.value)} placeholder="Optional" className="px-3 py-2 rounded-lg border border-[#d5e7da] bg-white text-sm text-[#101f17]" />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#414844]">
+                  Upload profile picture
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      if (!file) return;
+                      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+                        setProfileError('Choose a PNG, JPG, or WebP image.');
+                        event.currentTarget.value = '';
+                        return;
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        setProfileError('Choose an image smaller than 5 MB.');
+                        event.currentTarget.value = '';
+                        return;
+                      }
+                      setProfileError(null);
+                      setProfileAvatarFile(file);
+                      setProfileAvatarUrl('');
+                      setProfileAvatarPreview(URL.createObjectURL(file));
+                    }}
+                    className="px-3 py-2 rounded-lg border border-[#d5e7da] bg-white text-sm text-[#101f17] file:mr-3 file:rounded-md file:border-0 file:bg-[#e6f8eb] file:px-3 file:py-1 file:font-semibold"
+                  />
+                </label>
+                {profileAvatarPreview && (
+                  <img
+                    src={profileAvatarPreview}
+                    alt="Profile picture preview"
+                    className="h-16 w-16 rounded-full border border-[#c1ecd4] object-cover"
+                    onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
+                    onLoad={(event) => { event.currentTarget.style.visibility = 'visible'; }}
+                  />
+                )}
+                {profileAvatarPreview && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileAvatarUrl('');
+                      setProfileAvatarFile(null);
+                      setProfileAvatarPreview('');
+                    }}
+                    className="self-start text-xs font-semibold text-[#a23e18] hover:underline"
+                  >
+                    Remove profile picture
+                  </button>
+                )}
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#414844]">
+                  Campus
+                  <select value={profileCampus} onChange={(event) => setProfileCampus(event.target.value as CampusId)} className="px-3 py-2 rounded-lg border border-[#d5e7da] bg-white text-sm text-[#101f17]">
+                    {getCampusConfigurations().filter((campus) => campus.id !== 'all-campuses').map((campus) => (
+                      <option key={campus.id} value={campus.id}>{campus.name}</option>
+                    ))}
+                  </select>
+                </label>
+                {profileError && <p role="alert" className="text-xs font-semibold text-red-700">{profileError}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setIsEditingProfile(false)} className="flex-1 px-3 py-2 rounded-lg border border-[#d5e7da] text-xs font-bold text-[#414844]">Cancel</button>
+                  <button type="submit" disabled={isSavingProfile} className="flex-1 px-3 py-2 rounded-lg bg-[#012d1d] text-xs font-bold text-white disabled:opacity-60">{isSavingProfile ? 'Saving…' : 'Save settings'}</button>
+                </div>
+              </form>
+            )}
 
             {/* Privacy Controls & Account Settings */}
             <div className="flex flex-col gap-2 p-3.5 bg-[#f7fdf9] rounded-xl border border-[#c1ecd4] text-[12px]">
@@ -190,13 +409,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-[#e0f2e6]">
-              <button
-                type="button"
-                onClick={() => setMode('login')}
-                className="text-[12px] font-semibold text-[#012d1d] hover:underline cursor-pointer"
-              >
-                Sign into another account
-              </button>
+              {isSupabaseConfigured ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onLogout();
+                  }}
+                  className="text-[12px] font-semibold text-[#012d1d] hover:underline cursor-pointer"
+                >
+                  Sign out to switch accounts
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onLogout(); }}
+                  className="text-[12px] font-semibold text-[#012d1d] hover:underline cursor-pointer"
+                >
+                  Sign out to switch accounts
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onLogout}
@@ -243,7 +475,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@caldwell.edu"
+                placeholder="name@example.edu"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-[#d5e7da] text-[14px] focus:ring-2 focus:ring-[#012d1d] outline-none"
               />
             </div>
@@ -353,7 +585,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Maya Lin"
+                placeholder="Your full name"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-[#d5e7da] text-[14px] focus:ring-2 focus:ring-[#012d1d] outline-none"
               />
             </div>
@@ -368,7 +600,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
-                placeholder={roleSelection === 'student' ? 'CW-2024-8192' : 'OFFICER-#ST-44'}
+                placeholder={roleSelection === 'student' ? 'Student ID' : 'Staff ID'}
                 className="w-full px-3.5 py-2.5 rounded-lg border border-[#d5e7da] text-[14px] focus:ring-2 focus:ring-[#012d1d] outline-none"
               />
             </div>
@@ -383,7 +615,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@caldwell.edu"
+                placeholder="name@example.edu"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-[#d5e7da] text-[14px] focus:ring-2 focus:ring-[#012d1d] outline-none"
               />
             </div>
@@ -444,7 +676,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <span className="material-symbols-outlined text-3xl text-[#1b4332] mx-auto">mark_email_read</span>
                 <h4 className="text-[15px] font-bold text-[#012d1d]">Recovery Email Dispatched</h4>
                 <p className="text-[12px] text-[#414844]">
-                  A password reset link was sent to your university email. Follow the instructions to reset your password.
+                  A password reset link was sent to the email address on your account. Follow its instructions to reset your password.
                 </p>
                 <button
                   type="button"
@@ -460,7 +692,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             ) : (
               <>
                 <p className="text-[13px] text-[#414844]">
-                  Enter your registered @caldwell.edu university address and we will issue a secure authentication recovery link.
+                  Enter the email address on your account and we will send recovery instructions.
                 </p>
 
                 <div className="flex flex-col gap-1">
@@ -473,7 +705,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@caldwell.edu"
+                    placeholder="name@example.edu"
                     className="w-full px-3.5 py-2.5 rounded-lg border border-[#d5e7da] text-[14px] focus:ring-2 focus:ring-[#012d1d] outline-none"
                   />
                 </div>

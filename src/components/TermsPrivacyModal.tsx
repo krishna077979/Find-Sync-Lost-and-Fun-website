@@ -96,7 +96,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
               <div>
                 <h4 className="font-bold text-[#101f17] mb-1">1. Information Collection &amp; Purpose</h4>
                 <p>
-                  FindSync collects report descriptions, location tags, date/time approximations, and optional photographic attachments solely to facilitate property reconciliation. Personal identity information is verified via Caldwell Single Sign-On (SSO).
+                  FindSync collects report descriptions, location tags, date/time approximations, and optional photographic attachments to support item recovery. Sign-in uses the provider configured for this deployment.
                 </p>
               </div>
 
@@ -121,10 +121,10 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
               <div className="p-3 bg-[#ffdbcf]/50 rounded-xl border border-[#fe8357]/40 text-[#390c00]">
                 <h4 className="font-bold flex items-center gap-1.5 mb-1">
                   <span className="material-symbols-outlined text-base">verified</span>
-                  Caldwell University Student Honor Code
+                  Campus Code of Conduct
                 </h4>
                 <p className="text-xs">
-                  Filing a fraudulent ownership claim or knowingly attempting to claim property belonging to another student is a direct violation of Section 8 of the Caldwell Student Code of Conduct and will result in referral to the Office of Student Conduct.
+                  False ownership claims may violate campus rules and can be referred to the relevant campus office.
                 </p>
               </div>
 
@@ -147,7 +147,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
           {activeTab === 'regulations' && (
             <>
               <div>
-                <h4 className="font-bold text-[#101f17] mb-1">Caldwell University Lost Property Regulation Sec. 4B</h4>
+                <h4 className="font-bold text-[#101f17] mb-1">Campus Lost Property Guidance</h4>
                 <p>
                   All property found on university grounds, shuttle buses, academic buildings, or athletic facilities must be surrendered to an official custody desk within 24 hours of discovery.
                 </p>

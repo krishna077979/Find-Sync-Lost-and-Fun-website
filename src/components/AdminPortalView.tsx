@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Item, MatchCase, UserProfile } from '../types';
-import { INITIAL_USERS } from '../data/mockData';
+import { Item, MatchCase, ClaimTracking, UserProfile } from '../types';
 import {
   CampusConfiguration,
   CampusLocationArea,
@@ -13,7 +12,9 @@ import {
 
 interface AdminPortalViewProps {
   items: Item[];
-  matchCase: MatchCase;
+  matchCase: MatchCase | null;
+  hasActiveClaim?: boolean;
+  claimTracking?: ClaimTracking | null;
   onApproveClaim: () => void;
   onNavigateToMatch: () => void;
   currentUser?: UserProfile;
@@ -23,6 +24,8 @@ interface AdminPortalViewProps {
 export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   items,
   matchCase,
+  hasActiveClaim = false,
+  claimTracking = null,
   onApproveClaim,
   onNavigateToMatch,
   currentUser,
@@ -32,21 +35,21 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   
   // Campus Configuration state
   const [campusConfigs, setCampusConfigs] = useState<CampusConfiguration[]>(getCampusConfigurations());
-  const [selectedCampusId, setSelectedCampusId] = useState<string>('sage-bhopal');
+  const [selectedCampusId, setSelectedCampusId] = useState<string>('main-campus');
   const [isAddingCampus, setIsAddingCampus] = useState(false);
   const [newCampusName, setNewCampusName] = useState('');
   const [newCampusShortCode, setNewCampusShortCode] = useState('');
   const [newCampusAddress, setNewCampusAddress] = useState('');
-  const [newCampusLat, setNewCampusLat] = useState('23.1785');
-  const [newCampusLng, setNewCampusLng] = useState('77.4920');
+  const [newCampusLat, setNewCampusLat] = useState('');
+  const [newCampusLng, setNewCampusLng] = useState('');
 
   // Building / Area creation state
   const [isAddingArea, setIsAddingArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [newAreaCode, setNewAreaCode] = useState('');
   const [newAreaCategory, setNewAreaCategory] = useState<CampusAreaCategory>('academic');
-  const [newAreaLat, setNewAreaLat] = useState('23.1785');
-  const [newAreaLng, setNewAreaLng] = useState('77.4920');
+  const [newAreaLat, setNewAreaLat] = useState('');
+  const [newAreaLng, setNewAreaLng] = useState('');
   const [newAreaDesk, setNewAreaDesk] = useState('Campus Support Helpdesk');
   const [newAreaDesc, setNewAreaDesc] = useState('');
 
@@ -56,45 +59,13 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [evidenceRequested, setEvidenceRequested] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [moderationFilter, setModerationFilter] = useState<'all' | 'flagged' | 'duplicates'>('all');
-  const [moderatedItems, setModeratedItems] = useState<Record<string, { status: string; note?: string }>>({
-    'item-1': { status: 'Verified Clean' },
-    'item-2': { status: 'Under Duplicate Review', note: 'Matches Report #LR-8821' },
-  });
+  const [moderatedItems, setModeratedItems] = useState<Record<string, { status: string; note?: string }>>({});
 
   const [auditLog, setAuditLog] = useState<
     { id: string; action: string; target: string; officer: string; timestamp: string }[]
-  >([
-    {
-      id: 'aud-1',
-      action: 'Custody Intake',
-      target: 'Item #F-1082 (Sony XM4 Headphones)',
-      officer: 'Officer Ramirez (#ST-44)',
-      timestamp: 'Oct 14, 4:30 PM',
-    },
-    {
-      id: 'aud-2',
-      action: 'Bi-Directional AI Match Scan',
-      target: 'Matched #F-1082 with #L-2049 (86% Confidence)',
-      officer: 'FindSync Core Engine',
-      timestamp: 'Oct 14, 4:32 PM',
-    },
-    {
-      id: 'aud-3',
-      action: 'Ownership Claim Received',
-      target: 'Claim #CLM-9204 filed by Maya Lin',
-      officer: 'Officer Ramirez (#ST-44)',
-      timestamp: 'Oct 14, 4:45 PM',
-    },
-    {
-      id: 'aud-4',
-      action: 'Bin Assignment',
-      target: 'Secured into Bin #E-14 (Student Union Locker)',
-      officer: 'Officer Ramirez (#ST-44)',
-      timestamp: 'Oct 14, 4:48 PM',
-    },
-  ]);
+  >([]);
 
-  const [usersList, setUsersList] = useState<UserProfile[]>(INITIAL_USERS);
+  const [usersList, setUsersList] = useState<UserProfile[]>([]);
 
   const inCustodyItems = items.filter(
     (i) => i.status === 'in_custody' || i.status === 'under_review'
@@ -107,14 +78,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       setClaimApproved(true);
       setClaimRejected(false);
       setEvidenceRequested(false);
-      setActionNotice('Property released to Maya Lin. Handover logged to chain of custody audit.');
+      setActionNotice('Claim approved and handover recorded.');
       setAuditLog((prev) => [
         {
           id: `aud-${Date.now()}`,
           action: 'Handover Completed',
-          target: 'Item #F-1082 released to Maya Lin (ID #8492)',
-          officer: 'Officer Ramirez (#ST-44)',
-          timestamp: 'Just now',
+          target: `Claim ${claimTracking?.claimId ?? ''} approved`,
+          officer: currentUser?.name ?? 'Staff member',
+          timestamp: new Date().toLocaleString(),
         },
         ...prev,
       ]);
@@ -125,14 +96,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const handleRejectClaim = () => {
     setClaimRejected(true);
     setClaimApproved(false);
-    setActionNotice('Claim #CLM-9204 rejected. Insufficient proof of ownership.');
+    setActionNotice('Claim rejected.');
     setAuditLog((prev) => [
       {
         id: `aud-${Date.now()}`,
         action: 'Claim Rejected',
-        target: 'Claim #CLM-9204 rejected for #F-1082',
-        officer: 'Officer Ramirez (#ST-44)',
-        timestamp: 'Just now',
+        target: `Claim ${claimTracking?.claimId ?? ''} rejected`,
+        officer: currentUser?.name ?? 'Staff member',
+        timestamp: new Date().toLocaleString(),
       },
       ...prev,
     ]);
@@ -145,9 +116,9 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       {
         id: `aud-${Date.now()}`,
         action: 'Evidence Requested',
-        target: 'Requested purchase receipt from Maya Lin for #CLM-9204',
-        officer: 'Officer Ramirez (#ST-44)',
-        timestamp: 'Just now',
+        target: `Additional evidence requested for ${claimTracking?.claimId ?? 'claim'}`,
+        officer: currentUser?.name ?? 'Staff member',
+        timestamp: new Date().toLocaleString(),
       },
       ...prev,
     ]);
@@ -182,11 +153,11 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 Staff Intake &amp; Claim Adjudication Console
               </span>
               <span className="text-[10px] bg-[#1b4332] text-white px-2 py-0.5 rounded-full font-bold">
-                Officer Ramirez (#ST-44)
+                {currentUser?.name ?? 'Staff member'}
               </span>
             </div>
             <h1 className="text-[24px] font-bold text-[#012d1d]">
-              Caldwell Student Union Custody Desk
+              Campus Custody Desk
             </h1>
           </div>
         </div>
@@ -194,16 +165,16 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <span className="text-[11px] text-[#414844] block">Holding Capacity</span>
-            <span className="text-[14px] font-bold text-[#012d1d]">34 / 80 Bins Occupied</span>
+            <span className="text-[14px] font-bold text-[#012d1d]">{inCustodyItems.length} items</span>
           </div>
           <span className="h-8 w-px bg-[#d5e7da] hidden sm:block" />
-          <button
+          {matchCase && <button
             type="button"
             onClick={onNavigateToMatch}
             className="px-4 py-2 rounded-lg bg-[#012d1d] text-white text-[13px] font-bold hover:bg-[#1b4332] transition-colors cursor-pointer"
           >
-            Review Active Match #PM-8429
-          </button>
+            Review Active Match
+          </button>}
         </div>
       </div>
 
@@ -312,7 +283,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
       {/* TAB 1: CLAIMS ADJUDICATION */}
       {adminTab === 'claims' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        !hasActiveClaim ? <div className="rounded-2xl border border-dashed border-[#c1ecd4] bg-white p-10 text-center text-sm text-[#536057]">No claims are currently awaiting review.</div> : <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Pending Claim Verification Queue (7 cols) */}
           <div className="lg:col-span-7 flex flex-col gap-4">
             <div className="bg-white rounded-2xl p-6 border border-[#d5e7da] shadow-xs flex flex-col gap-4">
@@ -320,7 +291,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#a23e18]">pending_actions</span>
                   <h2 className="text-[17px] font-bold text-[#101f17]">
-                    Pending Ownership Claim #CLM-9204
+                    Pending Ownership Claim {claimTracking?.claimId ?? ''}
                   </h2>
                 </div>
                 <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#ffdbcf] text-[#a23e18] font-bold">
@@ -332,14 +303,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               <div className="flex flex-col gap-3">
                 <div className="p-3.5 rounded-xl bg-[#e6f8eb] border border-[#c1ecd4] flex flex-col gap-2">
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="font-bold text-[#012d1d]">Claimant: Maya Lin (ID #8492)</span>
-                    <span className="text-[#414844]">Submitted: Oct 14, 4:45 PM</span>
+                    <span className="font-bold text-[#012d1d]">Claimant: {currentUser?.name ?? 'Signed-in user'}</span>
+                    <span className="text-[#414844]">Status: {claimTracking?.status ?? 'Under review'}</span>
                   </div>
                   <div className="text-[13px] text-[#101f17]">
-                    <strong>Target Property:</strong> Black Over-Ear Headphones (Assigned Bin #E-14)
+                    <strong>Target Property:</strong> {claimTracking?.itemTitle}
                   </div>
                   <div className="text-[12px] text-[#414844]">
-                    <strong>Misplacement Context:</strong> "Packed laptop in a hurry to attend 2:30 PM Organic Chemistry Lab in Hall 3."
+                    <strong>Report:</strong> {claimTracking?.reportNumber}
                   </div>
                 </div>
 
@@ -350,13 +321,13 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     <span>Confidential Covert Identifiers Provided by Claimant</span>
                   </div>
                   <p className="text-[13px] text-[#101f17] bg-[#ecfef1] p-3 rounded-lg border border-[#c1ecd4] font-medium leading-relaxed">
-                    "Device Bluetooth name broadcast is 'Maya's XM4'. Inside the headphone case zipper mesh pocket there is a silver USB-C to 3.5mm coiled adapter and a lavender guitar pick."
+                    {claimTracking?.submittedProof || 'No ownership evidence has been submitted yet.'}
                   </p>
 
                   <div className="flex items-start gap-2 pt-1 text-[12px] text-[#414844]">
                     <span className="material-symbols-outlined text-[#012d1d] text-base">fact_check</span>
                     <span>
-                      Staff Check: Officer Ramirez inspected Bin #E-14 case mesh pocket — lavender guitar pick and coiled adapter confirmed present.
+                      Compare submitted ownership evidence with the intake record before making a decision.
                     </span>
                   </div>
                 </div>
@@ -403,7 +374,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 {claimApproved && (
                   <div className="p-3.5 rounded-lg bg-[#c1ecd4] text-[#002114] text-[12px] font-semibold flex items-center gap-2">
                     <span className="material-symbols-outlined text-lg text-[#012d1d]">receipt</span>
-                    <span>Turnover receipt #TR-8821 dispatched to Maya Lin. Bin #E-14 marked vacant and sanitized.</span>
+                    <span>Handover status has been updated.</span>
                   </div>
                 )}
               </div>
@@ -426,7 +397,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className="px-2 py-1 rounded bg-[#012d1d] text-white font-mono text-[11px] font-bold shrink-0">
-                        {item.binNumber || 'BIN #E-14'}
+                        {item.binNumber || 'Unassigned'}
                       </span>
                       <div className="flex flex-col min-w-0">
                         <span className="text-[13px] font-bold text-[#101f17] truncate">{item.title}</span>
@@ -502,10 +473,10 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
             {/* Moderation items list */}
             <div className="flex flex-col gap-4">
-              {items.slice(0, 5).map((item, idx) => {
+              {items.slice(0, 5).map((item) => {
                 const modStatus = moderatedItems[item.id] || {
-                  status: idx === 1 ? 'Under Duplicate Review' : 'Verified Clean',
-                  note: idx === 1 ? 'Possible duplicate of #LR-8821' : '',
+                  status: 'Awaiting Review',
+                  note: '',
                 };
 
                 if (moderationFilter === 'duplicates' && !modStatus.status.includes('Duplicate')) {
@@ -559,7 +530,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                           onClick={() => {
                             setModeratedItems((prev) => ({
                               ...prev,
-                              [item.id]: { status: 'Verified Clean', note: 'Officer Ramirez cleared report.' },
+                              [item.id]: { status: 'Verified Clean', note: `Verified by ${currentUser?.name ?? 'staff member'}.` },
                             }));
                             setActionNotice(`Report ${item.reportCode} verified as legitimate campus record.`);
                             setAuditLog((prev) => [
@@ -567,8 +538,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                                 id: `aud-${Date.now()}`,
                                 action: 'Report Cleared',
                                 target: `${item.reportCode} verified clean`,
-                                officer: 'Officer Ramirez (#ST-44)',
-                                timestamp: 'Just now',
+                                officer: currentUser?.name ?? 'Staff member',
+                                timestamp: new Date().toLocaleString(),
                               },
                               ...prev,
                             ]);
@@ -584,7 +555,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                           onClick={() => {
                             setModeratedItems((prev) => ({
                               ...prev,
-                              [item.id]: { status: 'Under Duplicate Review', note: 'Officer Ramirez marked as duplicate.' },
+                              [item.id]: { status: 'Under Duplicate Review', note: `Flagged by ${currentUser?.name ?? 'staff member'}.` },
                             }));
                             setActionNotice(`Report ${item.reportCode} flagged as duplicate candidate.`);
                             setAuditLog((prev) => [
@@ -592,8 +563,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                                 id: `aud-${Date.now()}`,
                                 action: 'Duplicate Flagged',
                                 target: `${item.reportCode} merged with potential duplicate`,
-                                officer: 'Officer Ramirez (#ST-44)',
-                                timestamp: 'Just now',
+                                officer: currentUser?.name ?? 'Staff member',
+                                timestamp: new Date().toLocaleString(),
                               },
                               ...prev,
                             ]);
@@ -617,8 +588,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                                 id: `aud-${Date.now()}`,
                                 action: 'Report Flagged Inappropriate',
                                 target: `${item.reportCode} suppressed from feed`,
-                                officer: 'Officer Ramirez (#ST-44)',
-                                timestamp: 'Just now',
+                                officer: currentUser?.name ?? 'Staff member',
+                                timestamp: new Date().toLocaleString(),
                               },
                               ...prev,
                             ]);
@@ -805,7 +776,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 onClick={() => {
                   const defaults = resetCampusConfigurationsToDefault();
                   setCampusConfigs(defaults);
-                  setActionNotice('Restored verified SAGE University, Bhopal & Indore default configurations.');
+                  setActionNotice('Restored the default campus configurations.');
                 }}
                 className="px-3.5 py-2 rounded-xl bg-white border border-[#d5e7da] text-[#414844] hover:bg-[#e6f8eb] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                 title="Reset to factory verified coordinates"
@@ -885,7 +856,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     type="text"
                     value={newCampusName}
                     onChange={(e) => setNewCampusName(e.target.value)}
-                    placeholder="e.g., SAGE University, Bhopal"
+                    placeholder="e.g., University campus"
                     className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
                   />
                 </div>
@@ -905,7 +876,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     type="text"
                     value={newCampusAddress}
                     onChange={(e) => setNewCampusAddress(e.target.value)}
-                    placeholder="e.g., Katara Hills Extension, Bhopal"
+                    placeholder="e.g., Campus center"
                     className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs"
                   />
                 </div>
@@ -919,7 +890,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     step="0.0001"
                     value={newCampusLat}
                     onChange={(e) => setNewCampusLat(e.target.value)}
-                    placeholder="23.1785"
+                    placeholder="Latitude (optional)"
                     className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs font-mono"
                   />
                 </div>
@@ -930,7 +901,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     step="0.0001"
                     value={newCampusLng}
                     onChange={(e) => setNewCampusLng(e.target.value)}
-                    placeholder="77.4920"
+                    placeholder="Longitude (optional)"
                     className="px-3 py-2 rounded-lg bg-white border border-[#d5e7da] text-xs font-mono"
                   />
                 </div>
@@ -952,8 +923,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       return;
                     }
                     const newId = `campus-${Date.now()}`;
-                    const latNum = parseFloat(newCampusLat) || 23.1785;
-                    const lngNum = parseFloat(newCampusLng) || 77.4920;
+                    const latNum = newCampusLat.trim() ? Number(newCampusLat) : 0;
+                    const lngNum = newCampusLng.trim() ? Number(newCampusLng) : 0;
+                    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum) || Math.abs(latNum) > 90 || Math.abs(lngNum) > 180) {
+                      alert('Enter valid latitude and longitude, or leave both blank until coordinates are available.');
+                      return;
+                    }
                     const latDir = latNum >= 0 ? 'N' : 'S';
                     const lngDir = lngNum >= 0 ? 'E' : 'W';
                     const newCampusObj: CampusConfiguration = {
@@ -968,21 +943,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                         formatted: `${Math.abs(latNum).toFixed(4)}° ${latDir}, ${Math.abs(lngNum).toFixed(4)}° ${lngDir}`,
                       },
                       itemCount: 0,
-                      desksCount: 1,
-                      areas: [
-                        {
-                          id: `${newId}-area-1`,
-                          name: 'Central Academic Block',
-                          code: `${newCampusShortCode.trim().toUpperCase()}-MAIN`,
-                          category: 'academic',
-                          categoryLabel: 'Academic Blocks',
-                          x: 50,
-                          y: 50,
-                          lat: latNum,
-                          lng: lngNum,
-                          deskNearby: 'Main Security Reception',
-                        },
-                      ],
+                      desksCount: 0,
+                      areas: [],
                     };
                     const updated = [...campusConfigs, newCampusObj];
                     setCampusConfigs(updated);

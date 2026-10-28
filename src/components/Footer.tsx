@@ -21,34 +21,30 @@ export const Footer: React.FC<FooterProps> = ({
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[#012d1d] text-2xl">verified_user</span>
-              <span className="text-[18px] text-[#012d1d] font-bold tracking-tight">Campus Security &amp; Safety</span>
+              <span className="text-[18px] text-[#012d1d] font-bold tracking-tight">FindSync Campus Network</span>
             </div>
             <p className="text-[14px] text-[#414844] leading-relaxed">
-              In official partnership with Caldwell University Campus Police, Student Union Staff, and Facilities Operations.
+              Location-based lost and found reports that help campus communities coordinate safe item handovers.
             </p>
-            <div className="pt-2 flex items-center gap-2 text-[13px] font-semibold text-[#012d1d]">
-              <span className="material-symbols-outlined text-sm text-[#a23e18]">call</span>
-              <span>Campus Police 24/7 Dispatch: (555) 019-2833</span>
-            </div>
           </div>
 
           {/* Column 2 */}
           <div className="flex flex-col gap-2">
             <span className="text-[14px] text-[#101f17] font-bold uppercase tracking-wider">
-              Safe Handover Stations
+              Campus Handover Locations
             </span>
             <ul className="flex flex-col gap-1.5 text-[14px] text-[#414844]">
               <li className="flex items-center gap-1.5 hover:text-[#012d1d] cursor-pointer" onClick={onOpenCampusDesk}>
                 <span className="text-[#a23e18]">•</span>
-                <span>Student Union Front Desk (Open 24/7)</span>
+                <span>View available campus handover desks</span>
               </li>
               <li className="flex items-center gap-1.5 hover:text-[#012d1d] cursor-pointer" onClick={onOpenCampusDesk}>
                 <span className="text-[#012d1d]">•</span>
-                <span>Main Campus Library Circulation Desk</span>
+                <span>Check selected campus locations</span>
               </li>
               <li className="flex items-center gap-1.5 hover:text-[#012d1d] cursor-pointer" onClick={onOpenCampusDesk}>
                 <span className="text-[#012d1d]">•</span>
-                <span>Caldwell Health &amp; Athletics Center Concierge</span>
+                <span>Use the map to find a nearby desk</span>
               </li>
             </ul>
           </div>
@@ -82,14 +78,14 @@ export const Footer: React.FC<FooterProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-[#414844] mt-2 leading-relaxed">
-              © 2025 Caldwell University FindSync Initiative. All institutional property claims are logged under state university regulations.
+              © {new Date().getFullYear()} FindSync. Campus rules and handover procedures vary by location.
             </p>
           </div>
         </div>
 
         <div className="pt-4 flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#414844] gap-2">
-          <span>FindSync Engine v4.2 · Secured with Institutional Zero-Knowledge Clue Encryption</span>
-          <span className="font-semibold text-[#012d1d]">Caldwell University Public Safety</span>
+          <span>FindSync · Location-based lost and found support</span>
+          <span className="font-semibold text-[#012d1d]">Confirm handover details with your campus</span>
         </div>
       </div>
     </footer>
